@@ -6,6 +6,7 @@ import {
   Order,
   OrderStatus,
   DisputeResolutionType,
+  DisputeReasonType,
   CarrierBid,
 } from "./types";
 import Header from "./components/Header";
@@ -14,6 +15,7 @@ import OfferCard from "./components/OfferCard";
 import OrderCard from "./components/OrderCard";
 import Ranking from "./components/Ranking";
 import EtaModal from "./components/EtaModal";
+import DisputeReasonModal from "./components/DisputeReasonModal";
 import DisputeModal from "./components/DisputeModal";
 import OfferModal from "./components/OfferModal";
 import BidModal from "./components/BidModal";
@@ -124,6 +126,7 @@ const App: React.FC = () => {
   const [viewingOffer, setViewingOffer] = useState<Offer | null>(null);
   const [biddingOffer, setBiddingOffer] = useState<Offer | null>(null);
   const [updatingEtaOrder, setUpdatingEtaOrder] = useState<Order | null>(null);
+  const [openingDispute, setOpeningDispute] = useState<Order | null>(null);
   const [managingDisputeOrder, setManagingDisputeOrder] =
     useState<Order | null>(null);
 
@@ -158,19 +161,42 @@ const App: React.FC = () => {
   }, [orders]);
 
   const connectWallet = async () => {
-    if (typeof window.ethereum !== "undefined") {
+    let isConnected = false;
+    let address = null;
+    if (typeof window.midnight !== "undefined") {
       try {
         console.log("Requesting wallet connection...");
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const mockAddress = "0x1234...AbCd";
-        setWalletAddress(mockAddress);
-        setIsWalletConnected(true);
+        // To authorize a DApp, call the enable() method and wait for
+        // the user to respond to the request.
+        const connectorAPI = await window.midnight?.mnLace.enable();
+
+        // Let's now check if the DApp is authorized, using the isEnabled() method
+        const isEnabled = await window.midnight?.mnLace.isEnabled();
+        if (isEnabled) {
+          isConnected = true;
+          console.log("Connected to the wallet:", connectorAPI);
+
+          // To get the wallet state, we call the state() API method, that will
+          // return the DAppConnectorWalletState object, which is where we can get
+          // the wallet address from.
+          const state = await connectorAPI.state();
+          const prefix = state.address.substring(0, 26);
+          const suffix = state.address.substring(state.address.length - 6);
+          address = `${prefix}...${suffix}`;
+        }
       } catch (error) {
         console.error("User denied account access or error occurred:", error);
       }
     } else {
-      alert("Please install a Web3 wallet like MetaMask!");
+      alert("Please install Midnight wallet, e.g. Lace.");
     }
+    setWalletAddress(address);
+    setIsWalletConnected(isConnected);
+  };
+
+  const disconnectWallet = async () => {
+    setWalletAddress(null);
+    setIsWalletConnected(false);
   };
 
   const generateDescription = async (itemName: string): Promise<string> => {
@@ -319,12 +345,17 @@ const App: React.FC = () => {
     );
   };
 
-  const openDispute = (orderId: number) => {
+  const handleOpenDispute = (
+    orderId: number,
+    dispute: DisputeReasonType,
+    reason: string,
+  ) => {
     setOrders(
       orders.map((o) =>
         o.id === orderId ? { ...o, status: OrderStatus.DisputeOpened } : o,
       ),
     );
+    setOpeningDispute(null);
   };
 
   const handleManageDispute = (
@@ -442,6 +473,7 @@ const App: React.FC = () => {
         isWalletConnected={isWalletConnected}
         walletAddress={walletAddress}
         connectWallet={connectWallet}
+        disconnectWallet={disconnectWallet}
       />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -486,7 +518,7 @@ const App: React.FC = () => {
                       markAsDelivered={markAsDelivered}
                       scanAndConfirmDelivery={scanAndConfirmDelivery}
                       confirmDelivery={confirmDelivery}
-                      openDispute={openDispute}
+                      openDispute={() => setOpeningDispute(order)}
                       onManageDispute={() => setManagingDisputeOrder(order)}
                       rateUser={rateUser}
                       confirmationPeriod={CONFIRMATION_PERIOD_MS}
@@ -513,7 +545,7 @@ const App: React.FC = () => {
                       markAsDelivered={markAsDelivered}
                       scanAndConfirmDelivery={scanAndConfirmDelivery}
                       confirmDelivery={confirmDelivery}
-                      openDispute={openDispute}
+                      openDispute={() => setOpeningDispute(order)}
                       onManageDispute={() => setManagingDisputeOrder(order)}
                       rateUser={rateUser}
                       confirmationPeriod={CONFIRMATION_PERIOD_MS}
@@ -546,7 +578,7 @@ const App: React.FC = () => {
                       markAsDelivered={markAsDelivered}
                       scanAndConfirmDelivery={scanAndConfirmDelivery}
                       confirmDelivery={confirmDelivery}
-                      openDispute={openDispute}
+                      openDispute={() => setOpeningDispute(order)}
                       onManageDispute={() => setManagingDisputeOrder(order)}
                       rateUser={rateUser}
                       confirmationPeriod={CONFIRMATION_PERIOD_MS}
@@ -588,6 +620,14 @@ const App: React.FC = () => {
           order={updatingEtaOrder}
           onClose={() => setUpdatingEtaOrder(null)}
           onSubmit={updateETA}
+        />
+      )}
+
+      {openingDispute && (
+        <DisputeReasonModal
+          order={openingDispute}
+          onClose={() => setOpeningDispute(null)}
+          onSubmit={handleOpenDispute}
         />
       )}
 

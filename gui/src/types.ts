@@ -1,21 +1,21 @@
 // types.ts
 export enum UserRole {
-  Buyer = 'Buyer',
-  Seller = 'Seller',
-  Carrier = 'Carrier',
+  Buyer = "Buyer",
+  Seller = "Seller",
+  Carrier = "Carrier",
 }
 
 export enum OrderStatus {
-  AwaitingCarrierAcceptance = 'Awaiting Carrier Acceptance',
-  AwaitingPickupConfirmation = 'Awaiting Pickup Confirmation',
-  InTransit = 'In Transit',
-  AwaitingScan = 'Awaiting Scan Confirmation',
-  Delivered = 'Delivered',
-  Completed = 'Completed',
-  DisputeOpened = 'Dispute Opened',
-  Cancelled = 'Cancelled',
-  Refunded = 'Refunded',
-  AwaitingArbitration = 'Awaiting Arbitration',
+  AwaitingCarrierAcceptance = "Awaiting Carrier Acceptance",
+  AwaitingPickupConfirmation = "Awaiting Pickup Confirmation",
+  InTransit = "In Transit",
+  AwaitingScan = "Awaiting Scan Confirmation",
+  Delivered = "Delivered",
+  Completed = "Completed",
+  DisputeOpened = "Dispute Opened",
+  Cancelled = "Cancelled",
+  Refunded = "Refunded",
+  AwaitingArbitration = "Awaiting Arbitration",
   CarrierDepositConfiscated = "Carrier's Deposit Confiscated",
 }
 
@@ -68,4 +68,14 @@ export interface Order {
   };
 }
 
-export type DisputeResolutionType = 'refund' | 'reject' | 'escalate' | 'confiscate';
+export type DisputeReasonType =
+  | "defective"
+  | "regreted"
+  | "wrong_size"
+  | "other";
+
+export type DisputeResolutionType =
+  | "refund"
+  | "reject"
+  | "escalate"
+  | "confiscate";
