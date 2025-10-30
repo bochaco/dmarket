@@ -125,17 +125,17 @@ const Header: React.FC<HeaderProps> = ({
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-8 w-8 text-brand-primary"
-              viewBox="0 0 20 20"
+              viewBox="0 0 24 24"
               fill="currentColor"
             >
               <path
                 fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
+                d="M12 2L3 5v6c0 5.25 3.8 9.25 9 10.5 5.2-1.25 9-5.25 9-10.5V5L12 2zM12 13a2 2 0 100-4 2 2 0 000 4zm-1.5 4l1.5-3 1.5 3h-3z"
                 clipRule="evenodd"
               />
             </svg>
             <h1 className="text-2xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-brand-accent to-brand-primary">
-              EscrowChain
+              dMarket
             </h1>
           </div>
           <div className="flex items-center space-x-4">
