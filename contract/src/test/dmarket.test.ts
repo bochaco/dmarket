@@ -108,7 +108,7 @@ const publishOffer = (
   }
 
   simulator.switchUser(users.carrierPwd, users.carrierPk);
-  simulator.itemPickedUp(offer.id);
+  simulator.itemPickedUp(offer.id, null);
   if (state == OfferState.PickedUp) {
     return res;
   }
@@ -218,16 +218,23 @@ describe("dMarket smart contract", () => {
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
     const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
 
+    const eta = randomNumber();
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
-    expect(() => simulator.itemPickedUp(offer.id)).toThrow(
+    expect(() => simulator.itemPickedUp(offer.id, eta)).toThrow(
       "failed assert: Only the selected carrier can pick this item up for delivery",
     );
 
+    expect(offer.deliveryEta).toEqual(0n);
     simulator.switchUser(users.carrierPwd, users.carrierPk);
-    simulator.itemPickedUp(offer.id);
-    expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
-      buildUpdatedOffer(offer, users, OfferState.PickedUp, fee),
+    simulator.itemPickedUp(offer.id, eta);
+    let updatedOffer = buildUpdatedOffer(
+      offer,
+      users,
+      OfferState.PickedUp,
+      fee,
     );
+    updatedOffer.deliveryEta = eta;
+    expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(updatedOffer);
   });
 
   it("seller confirms carrier has picked up a purchased item", () => {
@@ -245,6 +252,28 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.InTransit, fee),
     );
+  });
+
+  it("carrier updates delivery ETA", () => {
+    const users = randomUsers();
+    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const { offer, fee } = publishOffer(simulator, users, OfferState.InTransit);
+
+    const timestamp = randomNumber();
+    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    expect(() => simulator.setOfferEta(offer.id, timestamp)).toThrow(
+      "failed assert: Only the carrier selected for an offer can set its delivery ETA",
+    );
+
+    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    simulator.setOfferEta(offer.id, timestamp);
+    let ledgerOffer = simulator.getLedger().offers.lookup(offer.id);
+    expect(ledgerOffer.deliveryEta).toEqual(timestamp);
+
+    const newTimestamp = randomNumber();
+    simulator.setOfferEta(offer.id, newTimestamp);
+    ledgerOffer = simulator.getLedger().offers.lookup(offer.id);
+    expect(ledgerOffer.deliveryEta).toEqual(newTimestamp);
   });
 
   it("carrier delivered the purchased item", () => {

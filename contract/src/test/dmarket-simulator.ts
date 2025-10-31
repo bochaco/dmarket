@@ -94,6 +94,16 @@ export class DMarketSimulator {
     return res.result;
   }
 
+  public setOfferEta(offerId: Uint8Array, timestamp: bigint): [] {
+    const res = this.contract.circuits.setOfferEta(
+      this.circuitContext,
+      offerId,
+      timestamp,
+    );
+    this.circuitContext = res.context;
+    return res.result;
+  }
+
   public purchaseItem(offerId: Uint8Array, carrierId: Uint8Array): [] {
     const res = this.contract.circuits.purchaseItem(
       this.circuitContext,
@@ -104,10 +114,13 @@ export class DMarketSimulator {
     return res.result;
   }
 
-  public itemPickedUp(offerId: Uint8Array): [] {
+  public itemPickedUp(offerId: Uint8Array, eta: null | bigint): [] {
     const res = this.contract.circuits.itemPickedUp(
       this.circuitContext,
       offerId,
+      eta !== null
+        ? { is_some: true, value: BigInt(eta) }
+        : { is_some: false, value: 0n },
     );
     this.circuitContext = res.context;
     return res.result;

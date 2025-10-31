@@ -5,7 +5,7 @@ import CompactStandardLibrary;
 /**** Notes:
 - Contract Address Support: Seller, buyer, and carrier roles do not currently support contract addresses.
 - Transaction History Storage: While transaction history is being stored, future versions may implement external storage solutions.
-- Star Rating System: Ratings are calculated based on stars awarded in each transaction.
+- Star Rating System: Ratings are calculated based on stars awarded in each completed offer.
 Each star corresponds to 50 rating points. For example, 150 rating points equals 3 stars.
     Rating Scale:
         [1, 50): 1 star
@@ -20,7 +20,7 @@ TODO:
 - Anonymization: Implement anonymization for sellers, buyers, and carriers using OpenZeppelin tools.
 - Testing: Develop tests for circuit functionality.
 - Deposits Management: Introduce a system for managing deposits.
-
+- Calculate and store average rating for all users that paticipated in completed offers
 ****/
 
 // Information kept for registered carriers
@@ -29,8 +29,6 @@ export struct Carrier {
   id: Bytes<32>,
   // Wallet of the carrier where fees payment shall be sent.
   wallet: ZswapCoinPublicKey,
-  // Average calculated based on the rating received in each transaction.
-  rating: Uint<8>,
   // Number of completed transactions.
   txCompleted: Uint<128>,
   // Optional metadata, format and content to be interpreted by the dApp.
@@ -43,33 +41,21 @@ export struct Seller {
   id: Bytes<32>,
   // Wallet of the seller where payments shall be sent.
   wallet: ZswapCoinPublicKey,
-  // Average calculated based on the rating received in each transaction.
-  rating: Uint<8>,
   // Number of completed transactions.
   txCompleted: Uint<128>,
   // Optional metadata, format and content to be interpreted by the dApp.
   meta: Opaque<'string'>
 }
 
-// Maps carriers IDs to their registered information.
-// Updated only when a transaction is being completed.
+// Maps carriers and sellers IDs to their registered information.
+// Updated only when a offer gets completed.
 export ledger carriers: Map<Bytes<32>, Carrier>;
 
-// Maps sellers IDs to their registered information.
-// Updated only when a transaction is being completed.
 export ledger sellers: Map<Bytes<32>, Seller>;
 
-// A list of active escrows. Maps the transaction IDs
+// A list of active escrows. Maps the offer IDs
 // to the deposits made in relation to it.
 export ledger escrowDeposits: Map<Bytes<32>, [Uint<128>, Uint<128>]>;
-
-// Information of a buyer
-export struct Buyer {
-  id: Bytes<32>,
-  meta: Opaque<'string'>
-}
-
-export ledger buyers: Map<Bytes<32>, Buyer>;
 
 // Type to track the state of each published offer
 export enum OfferState {
@@ -150,6 +136,10 @@ export circuit offerItem(item: Item): Offer {
   const disclosedOfferId = disclose(offerId);
   assert(!offers.member(disclosedOfferId), "Offer already exists");
 
+  if (!sellers.member(sellerId)) {
+    // TODO: get seller info from a param of this circuit
+    sellers.insert(sellerId, default<Seller>);
+  }
   const offer = Offer { ...default<Offer>,
                         id: offerId,
                         item: item,
@@ -163,15 +153,29 @@ export circuit offerItem(item: Item): Offer {
 // Buyers will then be able to select a carrier among the bidders when buying the item.
 // OfferState: New => New
 export circuit setCarrierBid(offerId: Bytes<32>, fee: Uint<128>): [] {
-  checkOfferState(offerId, OfferState.New);
+  const offer = checkOfferState(offerId, OfferState.New);
 
-  const disclosedOfferId = disclose(offerId);
-  if (!carrierBids.member(disclosedOfferId)) {
-    carrierBids.insert(disclosedOfferId, default<Map<Bytes<32>, Uint<128>>>);
+  const carrierId = genCarrierId(ownPublicKey());
+  if (!carriers.member(carrierId)) {
+    // TODO: get carrier info from a param of this circuit
+    carriers.insert(carrierId, default<Carrier>);
   }
 
-  const disclosedCarrierId = disclose(genCarrierId(ownPublicKey()));
-  carrierBids.lookup(disclosedOfferId).insert(disclosedCarrierId, disclose(fee));
+  if (!carrierBids.member(offer.id)) {
+    carrierBids.insert(offer.id, default<Map<Bytes<32>, Uint<128>>>);
+  }
+
+  carrierBids.lookup(offer.id).insert(carrierId, disclose(fee));
+}
+
+// Update the estimated time of arrival (ETA) of an offer already in transit.
+// OfferState: InTransit => InTransit
+export circuit setOfferEta(offerId: Bytes<32>, timestamp: Uint<128>): [] {
+  const offer = checkOfferState(offerId, OfferState.InTransit);
+  assert(isCallerTheCarrier(offer), "Only the carrier selected for an offer can set its delivery ETA");
+
+  const updatedOffer = Offer { ...offer, deliveryEta: disclose(timestamp) };
+  offers.insert(offer.id, updatedOffer);
 }
 
 // Purchase the item of a published offer, prodiving the ID of the carrier
@@ -181,11 +185,10 @@ export circuit setCarrierBid(offerId: Bytes<32>, fee: Uint<128>): [] {
 export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.New);
 
-  const disclosedOfferId = disclose(offerId);
-  assert(carrierBids.member(disclosedOfferId), "No carriers found for the offer");
+  assert(carrierBids.member(offer.id), "No carriers found for the offer");
   const disclosedCarrierId = disclose(carrierId);
-  assert(carrierBids.lookup(disclosedOfferId).member(disclosedCarrierId), "Carrier not found among bidders");
-  const fee = carrierBids.lookup(disclosedOfferId).lookup(disclosedCarrierId);
+  assert(carrierBids.lookup(offer.id).member(disclosedCarrierId), "Carrier not found among bidders");
+  const fee = carrierBids.lookup(offer.id).lookup(disclosedCarrierId);
 
   // TODO: handle deposit according to price and carrier fee
 
@@ -197,19 +200,23 @@ export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>): [] {
                                     carrierFee: fee });
   const updatedOffer =
                 Offer { ...offer, purchaseDetails: purchaseDetails, state: OfferState.Purchased };
-  offers.insert(disclosedOfferId, updatedOffer);
+  offers.insert(offer.id, updatedOffer);
 }
 
 // Item is being picked up by the selected carrier, changing the offer state,
 // and locking the deposit made by the carrier according to the item's price.
 // OfferState: Purchased => PickedUp
-export circuit itemPickedUp(offerId: Bytes<32>): [] {
+export circuit itemPickedUp(offerId: Bytes<32>, eta: Maybe<Uint<128>>): [] {
   const offer = checkOfferState(offerId, OfferState.Purchased);
   assert(isCallerTheCarrier(offer), "Only the selected carrier can pick this item up for delivery");
 
   // TODO: handle deposit according to price
 
-  setOfferState(offer, OfferState.PickedUp);
+  if (disclose(eta.is_some)) {
+     setOfferState(Offer { ...offer, deliveryEta: disclose(eta.value) }, OfferState.PickedUp);
+  } else {
+     setOfferState(offer, OfferState.PickedUp);
+  }
 }
 
 // The seller confirms the carrier has picked the item up for delivery.
@@ -270,7 +277,7 @@ export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isBuyer = isCallerTheBuyer(offer);
   const isCarrier = isCallerTheCarrier(offer);
-  assert(isBuyer || isCarrier, "Only the carrier or buyer of the offer can rate the seller");
+  assert(isCarrier || isBuyer, "Only the carrier or buyer of the offer can rate the seller");
 
   if (isCarrier) {
     assert(offer.sellerRatings[0] == 0, "The rate for the seller was already set by the carrier");
@@ -292,7 +299,7 @@ export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isBuyer = isCallerTheBuyer(offer);
   const isSeller = isCallerTheSeller(offer);
-  assert(isBuyer || isSeller, "Only the seller or buyer of the offer can rate the carrier");
+  assert(isSeller || isBuyer, "Only the seller or buyer of the offer can rate the carrier");
 
   if (isSeller) {
     assert(offer.carrierRatings[0] == 0, "The rate for the carrier was already set by the seller");
@@ -314,7 +321,7 @@ export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isCarrier = isCallerTheCarrier(offer);
   const isSeller = isCallerTheSeller(offer);
-  assert(isCarrier || isSeller, "Only the seller or carrier of the offer can rate the buyer");
+  assert(isSeller || isCarrier, "Only the seller or carrier of the offer can rate the buyer");
 
   if (isSeller) {
     assert(offer.buyerRatings[0] == 0, "The rate for the buyer was already set by the seller");
