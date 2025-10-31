@@ -177,6 +177,9 @@ describe("dMarket smart contract", () => {
       .lookup(users.carrierId);
     expect(feeBid).toEqual(fee);
 
+    expect(() => simulator.setCarrierBid(randomBytes(32), fee)).toThrow(
+      "failed assert: Offer not found",
+    );
     // update bid fee
     const newFee = randomNumber();
     simulator.setCarrierBid(offer.id, newFee);
@@ -205,6 +208,9 @@ describe("dMarket smart contract", () => {
     expect(() => simulator.purchaseItem(offer.id, randomBytes(32))).toThrow(
       "failed assert: Carrier not found among bidders",
     );
+    expect(() =>
+      simulator.purchaseItem(randomBytes(32), users.carrierId),
+    ).toThrow("failed assert: Offer not found");
 
     simulator.purchaseItem(offer.id, users.carrierId);
 
@@ -226,6 +232,9 @@ describe("dMarket smart contract", () => {
 
     expect(offer.deliveryEta).toEqual(0n);
     simulator.switchUser(users.carrierPwd, users.carrierPk);
+    expect(() => simulator.itemPickedUp(randomBytes(32), eta)).toThrow(
+      "failed assert: Offer not found",
+    );
     simulator.itemPickedUp(offer.id, eta);
     let updatedOffer = buildUpdatedOffer(
       offer,
@@ -248,6 +257,9 @@ describe("dMarket smart contract", () => {
     );
 
     simulator.switchUser(users.sellerPwd, users.sellerPk);
+    expect(() => simulator.confirmItemInTransit(randomBytes(32))).toThrow(
+      "failed assert: Offer not found",
+    );
     simulator.confirmItemInTransit(offer.id);
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.InTransit, fee),
@@ -266,6 +278,9 @@ describe("dMarket smart contract", () => {
     );
 
     simulator.switchUser(users.carrierPwd, users.carrierPk);
+    expect(() => simulator.setOfferEta(randomBytes(32), timestamp)).toThrow(
+      "failed assert: Offer not found",
+    );
     simulator.setOfferEta(offer.id, timestamp);
     let ledgerOffer = simulator.getLedger().offers.lookup(offer.id);
     expect(ledgerOffer.deliveryEta).toEqual(timestamp);
@@ -287,6 +302,9 @@ describe("dMarket smart contract", () => {
     );
 
     simulator.switchUser(users.carrierPwd, users.carrierPk);
+    expect(() => simulator.delivered(randomBytes(32))).toThrow(
+      "failed assert: Offer not found",
+    );
     simulator.delivered(offer.id);
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Delivered, fee),
@@ -304,6 +322,9 @@ describe("dMarket smart contract", () => {
     );
 
     simulator.switchUser(users.buyerPwd, users.buyerPk);
+    expect(() => simulator.confirmDelivered(randomBytes(32))).toThrow(
+      "failed assert: Offer not found",
+    );
     simulator.confirmDelivered(offer.id);
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Completed, fee),
@@ -321,6 +342,9 @@ describe("dMarket smart contract", () => {
     );
 
     simulator.switchUser(users.buyerPwd, users.buyerPk);
+    expect(() => simulator.disputeItem(randomBytes(32))).toThrow(
+      "failed assert: Offer not found",
+    );
     simulator.disputeItem(offer.id);
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Dispute, fee),
@@ -338,6 +362,9 @@ describe("dMarket smart contract", () => {
     );
 
     simulator.switchUser(users.sellerPwd, users.sellerPk);
+    expect(() => simulator.resolveDispute(randomBytes(32))).toThrow(
+      "failed assert: Offer not found",
+    );
     simulator.resolveDispute(offer.id);
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Completed, fee),
@@ -348,6 +375,22 @@ describe("dMarket smart contract", () => {
     const users = randomUsers();
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
     const { offer, fee } = publishOffer(simulator, users, OfferState.Completed);
+
+    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    expect(() => simulator.rateSeller(offer.id, 1n)).toThrow(
+      "failed assert: Only the carrier or buyer of the offer can rate the seller",
+    );
+    expect(() => simulator.rateCarrier(offer.id, 1n)).toThrow(
+      "failed assert: Only the seller or buyer of the offer can rate the carrier",
+    );
+    expect(() => simulator.rateBuyer(offer.id, 1n)).toThrow(
+      "failed assert: Only the seller or carrier of the offer can rate the buyer",
+    );
+
+    const zeroRateErr = "failed assert: Rate needs to be greater than 0";
+    expect(() => simulator.rateSeller(offer.id, 0n)).toThrow(zeroRateErr);
+    expect(() => simulator.rateCarrier(offer.id, 0n)).toThrow(zeroRateErr);
+    expect(() => simulator.rateBuyer(offer.id, 0n)).toThrow(zeroRateErr);
 
     const sellerRatings: [bigint, bigint] = [
       randomRatingNumber(),
@@ -362,33 +405,30 @@ describe("dMarket smart contract", () => {
       randomRatingNumber(),
     ];
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
-    expect(() => simulator.rateSeller(offer.id, 1n)).toThrow(
-      "failed assert: Only the carrier or buyer of the offer can rate the seller",
-    );
     simulator.switchUser(users.sellerPwd, users.sellerPk);
+    expect(() => simulator.rateSeller(randomBytes(32), 1n)).toThrow(
+      "failed assert: Offer not found",
+    );
     expect(() => simulator.rateSeller(offer.id, 1n)).toThrow(
       "failed assert: Only the carrier or buyer of the offer can rate the seller",
     );
     simulator.rateCarrier(offer.id, carrierRatings[0]);
     simulator.rateBuyer(offer.id, buyerRatings[0]);
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
-    expect(() => simulator.rateCarrier(offer.id, 1n)).toThrow(
-      "failed assert: Only the seller or buyer of the offer can rate the carrier",
-    );
     simulator.switchUser(users.carrierPwd, users.carrierPk);
+    expect(() => simulator.rateCarrier(randomBytes(32), 1n)).toThrow(
+      "failed assert: Offer not found",
+    );
     expect(() => simulator.rateCarrier(offer.id, 1n)).toThrow(
       "failed assert: Only the seller or buyer of the offer can rate the carrier",
     );
     simulator.rateSeller(offer.id, sellerRatings[0]);
     simulator.rateBuyer(offer.id, buyerRatings[1]);
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
-    expect(() => simulator.rateBuyer(offer.id, 1n)).toThrow(
-      "failed assert: Only the seller or carrier of the offer can rate the buyer",
-    );
     simulator.switchUser(users.buyerPwd, users.buyerPk);
+    expect(() => simulator.rateBuyer(randomBytes(32), 1n)).toThrow(
+      "failed assert: Offer not found",
+    );
     expect(() => simulator.rateBuyer(offer.id, 1n)).toThrow(
       "failed assert: Only the seller or carrier of the offer can rate the buyer",
     );

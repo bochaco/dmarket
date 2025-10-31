@@ -20,7 +20,6 @@ TODO:
 - Anonymization: Implement anonymization for sellers, buyers, and carriers using OpenZeppelin tools.
 - Testing: Develop tests for circuit functionality.
 - Deposits Management: Introduce a system for managing deposits.
-- Calculate and store average rating for all users that paticipated in completed offers
 ****/
 
 // Information kept for registered carriers
@@ -274,6 +273,7 @@ export circuit resolveDispute(offerId: Bytes<32>): [] {
 // The carrier or buyer of the offer can rate the seller, and only once.
 // OfferState: Completed => Completed
 export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
+  assert(rating > 0, "Rate needs to be greater than 0");
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isBuyer = isCallerTheBuyer(offer);
   const isCarrier = isCallerTheCarrier(offer);
@@ -296,6 +296,7 @@ export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
 // The buyer or seller of the offer can rate the carrier, and only once.
 // OfferState: Completed => Completed
 export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
+  assert(rating > 0, "Rate needs to be greater than 0");
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isBuyer = isCallerTheBuyer(offer);
   const isSeller = isCallerTheSeller(offer);
@@ -318,6 +319,7 @@ export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
 // The carrier or seller of the offer can rate the buyer, and only once.
 // OfferState: Completed => Completed
 export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
+  assert(rating > 0, "Rate needs to be greater than 0");
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isCarrier = isCallerTheCarrier(offer);
   const isSeller = isCallerTheSeller(offer);
