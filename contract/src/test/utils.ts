@@ -22,9 +22,10 @@ export const randomCoinPublicKeyHex = (): string => {
 /**
  * Generates a random integer number > 0.
  */
-export const randomNumber = (): bigint => {
+export const randomNumber = (max: number | null): bigint => {
   return (
-    BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)) + BigInt(1)
+    BigInt(Math.floor(Math.random() * (max ? max : Number.MAX_SAFE_INTEGER))) +
+    BigInt(1)
   );
 };
 

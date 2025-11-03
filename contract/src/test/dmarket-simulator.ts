@@ -9,6 +9,8 @@ import {
   dummyContractAddress,
   assert,
   encodeCoinPublicKey,
+  decodeTokenType,
+  TokenType,
 } from "@midnight-ntwrk/compact-runtime";
 import {
   Contract,
@@ -19,6 +21,7 @@ import {
 } from "../managed/dmarket/contract/index.cjs";
 import { type DMarketPrivateState, witnesses } from "../witnesses.js";
 import { encodeCoinInfo } from "@midnight-ntwrk/ledger";
+import { randomBytes } from "./utils.js";
 
 /**
  * Serves as a testbed to exercise the contract in tests
@@ -33,7 +36,10 @@ export class DMarketSimulator {
       currentPrivateState,
       currentContractState,
       currentZswapLocalState,
-    } = this.contract.initialState(constructorContext({ secretKey }, senderPk));
+    } = this.contract.initialState(
+      constructorContext({ secretKey }, senderPk),
+      randomBytes(32),
+    );
     this.circuitContext = {
       currentPrivateState,
       currentZswapLocalState,
@@ -42,14 +48,6 @@ export class DMarketSimulator {
         currentContractState.data,
         sampleContractAddress(),
       ),
-    };
-  }
-
-  private buildEitherLeft(bytes: Uint8Array): any {
-    return {
-      is_left: true,
-      left: { bytes: bytes },
-      right: { bytes: encodeContractAddress(dummyContractAddress()) },
     };
   }
 
@@ -70,8 +68,18 @@ export class DMarketSimulator {
     return ledger(this.circuitContext.transactionContext.state);
   }
 
+  public getCoinColor(): TokenType {
+    return decodeTokenType(this.getLedger().coinColor);
+  }
+
   public getPrivateState(): DMarketPrivateState {
     return this.circuitContext.currentPrivateState;
+  }
+
+  public mintCoins() {
+    const res = this.contract.impureCircuits.mintCoins(this.circuitContext);
+    this.circuitContext = res.context;
+    return res.result;
   }
 
   public offerItem(item: Item): Offer {
@@ -104,20 +112,30 @@ export class DMarketSimulator {
     return res.result;
   }
 
-  public purchaseItem(offerId: Uint8Array, carrierId: Uint8Array): [] {
+  public purchaseItem(
+    offerId: Uint8Array,
+    carrierId: Uint8Array,
+    coinInfo: CoinInfo,
+  ): [] {
     const res = this.contract.circuits.purchaseItem(
       this.circuitContext,
       offerId,
       carrierId,
+      encodeCoinInfo(coinInfo),
     );
     this.circuitContext = res.context;
     return res.result;
   }
 
-  public itemPickedUp(offerId: Uint8Array, eta: null | bigint): [] {
+  public itemPickedUp(
+    offerId: Uint8Array,
+    coinInfo: CoinInfo,
+    eta: null | bigint,
+  ): [] {
     const res = this.contract.circuits.itemPickedUp(
       this.circuitContext,
       offerId,
+      encodeCoinInfo(coinInfo),
       eta !== null
         ? { is_some: true, value: BigInt(eta) }
         : { is_some: false, value: 0n },

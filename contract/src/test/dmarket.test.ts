@@ -11,7 +11,10 @@ import {
   randomRatingNumber,
   randomCoinPublicKeyHex,
 } from "./utils.js";
-import { encodeCoinPublicKey } from "@midnight-ntwrk/compact-runtime";
+import {
+  TokenType,
+  encodeCoinPublicKey,
+} from "@midnight-ntwrk/compact-runtime";
 import { createCoinInfo, nativeToken } from "@midnight-ntwrk/ledger";
 import {
   Offer,
@@ -21,10 +24,11 @@ import {
 } from "../managed/dmarket/contract/index.cjs";
 
 setNetworkId(NetworkId.Undeployed);
+
 const genRandomItem = (): Item => {
   const item: Item = {
     id: randomBytes(32),
-    price: randomNumber(),
+    price: randomNumber(50),
     meta: toHex(randomBytes(10)),
   };
   return item;
@@ -91,7 +95,7 @@ const publishOffer = (
   state: OfferState,
 ): { offer: Offer; fee: bigint } => {
   const item = genRandomItem();
-  const fee = randomNumber();
+  const fee = randomNumber(10);
   const offer = simulator.offerItem(item);
   const res = { offer: offer, fee: fee };
 
@@ -102,13 +106,25 @@ const publishOffer = (
   }
 
   simulator.switchUser(users.buyerPwd, users.buyerPk);
-  simulator.purchaseItem(offer.id, users.carrierId);
+  let coinInfoBuyer = createCoinInfo(
+    simulator.getCoinColor(),
+    item.price + fee,
+  );
+  simulator.purchaseItem(offer.id, users.carrierId, coinInfoBuyer);
+  expect(simulator.getLedger().treasury.value).toEqual(offer.item.price + fee);
   if (state == OfferState.Purchased) {
     return res;
   }
 
   simulator.switchUser(users.carrierPwd, users.carrierPk);
-  simulator.itemPickedUp(offer.id, null);
+  let coinInfoCarrier = createCoinInfo(
+    simulator.getCoinColor(),
+    item.price + fee,
+  );
+  simulator.itemPickedUp(offer.id, coinInfoCarrier, null);
+  expect(simulator.getLedger().treasury.value).toEqual(
+    2n * (offer.item.price + fee),
+  );
   if (state == OfferState.PickedUp) {
     return res;
   }
@@ -128,11 +144,15 @@ const publishOffer = (
   if (state == OfferState.Dispute) {
     simulator.switchUser(users.buyerPwd, users.buyerPk);
     simulator.disputeItem(offer.id);
+    expect(simulator.getLedger().treasury.value).toEqual(
+      2n * (offer.item.price + fee),
+    );
     return res;
   }
 
   simulator.switchUser(users.buyerPwd, users.buyerPk);
   simulator.confirmDelivered(offer.id);
+  expect(simulator.getLedger().treasury.value).toEqual(0n);
   return res;
 };
 
@@ -181,7 +201,7 @@ describe("dMarket smart contract", () => {
       "failed assert: Offer not found",
     );
     // update bid fee
-    const newFee = randomNumber();
+    const newFee = randomNumber(10);
     simulator.setCarrierBid(offer.id, newFee);
     feeBid = simulator
       .getLedger()
@@ -195,47 +215,96 @@ describe("dMarket smart contract", () => {
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
 
     const item = genRandomItem();
+    const fee = randomNumber(10);
     const offer = simulator.offerItem(item);
-    expect(() => simulator.purchaseItem(offer.id, randomBytes(32))).toThrow(
-      "failed assert: No carriers found for the offer",
-    );
+    let coinInfo = createCoinInfo(simulator.getCoinColor(), item.price + fee);
+    expect(() =>
+      simulator.purchaseItem(offer.id, randomBytes(32), coinInfo),
+    ).toThrow("failed assert: No carriers found for the offer");
 
     simulator.switchUser(users.carrierPwd, users.carrierPk);
-    const fee = randomNumber();
+    expect(simulator.getLedger().carrierBids.member(offer.id)).toBe(false);
     simulator.setCarrierBid(offer.id, fee);
+    expect(simulator.getLedger().carrierBids.member(offer.id)).toBe(true);
 
     simulator.switchUser(users.buyerPwd, users.buyerPk);
-    expect(() => simulator.purchaseItem(offer.id, randomBytes(32))).toThrow(
-      "failed assert: Carrier not found among bidders",
-    );
     expect(() =>
-      simulator.purchaseItem(randomBytes(32), users.carrierId),
+      simulator.purchaseItem(offer.id, randomBytes(32), coinInfo),
+    ).toThrow("failed assert: Carrier not found among bidders");
+    expect(() =>
+      simulator.purchaseItem(randomBytes(32), users.carrierId, coinInfo),
     ).toThrow("failed assert: Offer not found");
 
-    simulator.purchaseItem(offer.id, users.carrierId);
+    simulator.purchaseItem(offer.id, users.carrierId, coinInfo);
+    expect(simulator.getLedger().carrierBids.member(offer.id)).toBe(false);
 
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Purchased, fee),
     );
+    expect(simulator.getLedger().treasury.value).toEqual(
+      offer.item.price + fee,
+    );
+  });
+
+  it("invalid deposits for purchasing an item", () => {
+    const users = randomUsers();
+    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const { offer, fee } = publishOffer(simulator, users, OfferState.New);
+    expect(simulator.getLedger().treasury.value).toEqual(0n);
+    const rightAmount = offer.item.price + fee;
+
+    let nonNativeCoinInfo = createCoinInfo(
+      `0200${toHex(randomBytes(32))}`,
+      rightAmount,
+    );
+    expect(() =>
+      simulator.purchaseItem(offer.id, users.carrierId, nonNativeCoinInfo),
+    ).toThrow("failed assert: Only dMarket coins can be used for payments");
+
+    let tooLittleCoinInfo = createCoinInfo(
+      simulator.getCoinColor(),
+      rightAmount - 1n,
+    );
+    expect(() =>
+      simulator.purchaseItem(offer.id, users.carrierId, tooLittleCoinInfo),
+    ).toThrow(
+      "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
+    );
+
+    let tooMuchCoinInfo = createCoinInfo(
+      simulator.getCoinColor(),
+      rightAmount + 1n,
+    );
+    expect(() =>
+      simulator.purchaseItem(offer.id, users.carrierId, tooMuchCoinInfo),
+    ).toThrow(
+      "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
+    );
+
+    expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
   it("carrier picks up a purchased item", () => {
     const users = randomUsers();
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
     const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
+    let coinInfo = createCoinInfo(
+      simulator.getCoinColor(),
+      offer.item.price + fee,
+    );
 
-    const eta = randomNumber();
+    const eta = randomNumber(null);
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
-    expect(() => simulator.itemPickedUp(offer.id, eta)).toThrow(
+    expect(() => simulator.itemPickedUp(offer.id, coinInfo, eta)).toThrow(
       "failed assert: Only the selected carrier can pick this item up for delivery",
     );
 
     expect(offer.deliveryEta).toEqual(0n);
     simulator.switchUser(users.carrierPwd, users.carrierPk);
-    expect(() => simulator.itemPickedUp(randomBytes(32), eta)).toThrow(
-      "failed assert: Offer not found",
-    );
-    simulator.itemPickedUp(offer.id, eta);
+    expect(() =>
+      simulator.itemPickedUp(randomBytes(32), coinInfo, eta),
+    ).toThrow("failed assert: Offer not found");
+    simulator.itemPickedUp(offer.id, coinInfo, eta);
     let updatedOffer = buildUpdatedOffer(
       offer,
       users,
@@ -244,6 +313,52 @@ describe("dMarket smart contract", () => {
     );
     updatedOffer.deliveryEta = eta;
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(updatedOffer);
+    expect(simulator.getLedger().treasury.value).toEqual(
+      2n * (offer.item.price + fee),
+    );
+  });
+
+  it("invalid deposits for picking an item up", () => {
+    const users = randomUsers();
+    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
+    const rightAmount = offer.item.price + fee;
+    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    expect(simulator.getLedger().treasury.value).toEqual(
+      offer.item.price + fee,
+    );
+
+    let nonNativeCoinInfo = createCoinInfo(
+      `0200${toHex(randomBytes(32))}`,
+      rightAmount,
+    );
+    expect(() =>
+      simulator.itemPickedUp(offer.id, nonNativeCoinInfo, null),
+    ).toThrow("failed assert: Only dMarket coins can be used for payments");
+
+    let tooLittleCoinInfo = createCoinInfo(
+      simulator.getCoinColor(),
+      rightAmount - 1n,
+    );
+    expect(() =>
+      simulator.itemPickedUp(offer.id, tooLittleCoinInfo, null),
+    ).toThrow(
+      "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
+    );
+
+    let tooMuchCoinInfo = createCoinInfo(
+      simulator.getCoinColor(),
+      rightAmount + 1n,
+    );
+    expect(() =>
+      simulator.itemPickedUp(offer.id, tooMuchCoinInfo, null),
+    ).toThrow(
+      "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
+    );
+
+    expect(simulator.getLedger().treasury.value).toEqual(
+      offer.item.price + fee,
+    );
   });
 
   it("seller confirms carrier has picked up a purchased item", () => {
@@ -264,6 +379,9 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.InTransit, fee),
     );
+    expect(simulator.getLedger().treasury.value).toEqual(
+      2n * (offer.item.price + fee),
+    );
   });
 
   it("carrier updates delivery ETA", () => {
@@ -271,7 +389,7 @@ describe("dMarket smart contract", () => {
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
     const { offer, fee } = publishOffer(simulator, users, OfferState.InTransit);
 
-    const timestamp = randomNumber();
+    const timestamp = randomNumber(null);
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.setOfferEta(offer.id, timestamp)).toThrow(
       "failed assert: Only the carrier selected for an offer can set its delivery ETA",
@@ -285,7 +403,7 @@ describe("dMarket smart contract", () => {
     let ledgerOffer = simulator.getLedger().offers.lookup(offer.id);
     expect(ledgerOffer.deliveryEta).toEqual(timestamp);
 
-    const newTimestamp = randomNumber();
+    const newTimestamp = randomNumber(null);
     simulator.setOfferEta(offer.id, newTimestamp);
     ledgerOffer = simulator.getLedger().offers.lookup(offer.id);
     expect(ledgerOffer.deliveryEta).toEqual(newTimestamp);
@@ -309,6 +427,9 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Delivered, fee),
     );
+    expect(simulator.getLedger().treasury.value).toEqual(
+      2n * (offer.item.price + fee),
+    );
   });
 
   it("buyer confirms the purchased item has been delivered", () => {
@@ -329,6 +450,7 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Completed, fee),
     );
+    expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
   it("buyer opens a dispute on a purchased item", () => {
@@ -348,6 +470,9 @@ describe("dMarket smart contract", () => {
     simulator.disputeItem(offer.id);
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Dispute, fee),
+    );
+    expect(simulator.getLedger().treasury.value).toEqual(
+      2n * (offer.item.price + fee),
     );
   });
 
@@ -369,6 +494,10 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Completed, fee),
     );
+
+    // Regardless the dispute resolution type, the treasury should be now empty,
+    // all locked funds should have been sent to the corresponding parties.
+    // TODO!!!: expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
   it("users set rating after purchased is completed", () => {
@@ -444,5 +573,9 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       offerWithRatings,
     );
+  });
+
+  it("circuits validate offer state", () => {
+    // TODO!!!
   });
 });

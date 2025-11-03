@@ -5,6 +5,7 @@ import CompactStandardLibrary;
 /**** Notes:
 - Contract Address Support: Seller, buyer, and carrier roles do not currently support contract addresses.
 - Transaction History Storage: While transaction history is being stored, future versions may implement external storage solutions.
+- Shielded coins used in dMarket are minted by this same contract, in future version it could be taken out to a separate coin contract.
 - Star Rating System: Ratings are calculated based on stars awarded in each completed offer.
 Each star corresponds to 50 rating points. For example, 150 rating points equals 3 stars.
     Rating Scale:
@@ -18,8 +19,9 @@ Each star corresponds to 50 rating points. For example, 150 rating points equals
 
 TODO:
 - Anonymization: Implement anonymization for sellers, buyers, and carriers using OpenZeppelin tools.
-- Testing: Develop tests for circuit functionality.
-- Deposits Management: Introduce a system for managing deposits.
+- Testing: Develop tests for circuit functionality to check states.
+- Allow to specify type of dispute and type of resolution.
+- Deposits management for dispute resolutions.
 ****/
 
 // Information kept for registered carriers
@@ -52,9 +54,26 @@ export ledger carriers: Map<Bytes<32>, Carrier>;
 
 export ledger sellers: Map<Bytes<32>, Seller>;
 
-// A list of active escrows. Maps the offer IDs
-// to the deposits made in relation to it.
-export ledger escrowDeposits: Map<Bytes<32>, [Uint<128>, Uint<128>]>;
+// The locked deposits made by users of offers being fulfilled.
+export ledger treasury: QualifiedCoinInfo;
+
+// Flag to keep track whether there are coins stored on the treasury.
+ledger treasuryWithCoins: Boolean;
+
+// Domain separator used to mint the shielded tokens
+export ledger coinDomainSeparator: Bytes<32>;
+
+// Color of the coin minted by this contract, derived from the contract's address,
+// and the given domain separator.
+export ledger coinColor: Bytes<32>;
+
+// Counter and nonce are both used to generate a nonce when minting new shielded coins
+export ledger mintCounter: Counter;
+
+export ledger mintNonce: Bytes<32>;
+
+// Total number of ever minted shielded coins by this contract
+export ledger totalMinted: Uint<64>;
 
 // Type to track the state of each published offer
 export enum OfferState {
@@ -87,9 +106,6 @@ export struct Item {
   // Optional metadata for the item, format and content to be interpreted by the dApp.
   meta: Opaque<'string'>
 }
-
-// Maps the offer IDs to the carriers offered to deliver the item and their bidding fee price.
-export ledger carrierBids: Map<Bytes<32>, Map<Bytes<32>, Uint<128>>>;
 
 // Information defined when an offer is purchased, including selected carrier and agreed fee
 export struct PurchaseDetails {
@@ -124,7 +140,32 @@ export struct Offer {
 // Maps offers IDs to their info including state.
 export ledger offers: Map<Bytes<32>, Offer>;
 
-constructor() {
+// Maps the offer IDs to the carriers offered to deliver the item and their bidding fee price.
+export ledger carrierBids: Map<Bytes<32>, Map<Bytes<32>, Uint<128>>>;
+
+// Construction circuit, where coin domain separator and color are defined.
+// An initial nonce is provided which is then to generate new nonces for coin minting.
+constructor(initNonce: Bytes<32>) {
+  mintNonce = disclose(initNonce);
+  coinDomainSeparator = pad(32, "dmarket_shielded_coin");
+  coinColor = tokenType(coinDomainSeparator, disclose(kernel.self()));
+}
+
+// Mint shielded coins to be owned by the caller
+export circuit mintCoins(): [] {
+  // everyone can mint 1000 shielded tokens to themselves each time.
+  mintCounter.increment(1);
+  const newNonce = evolveNonce(mintCounter, mintNonce);
+  const amount: Uint<64> = 1000;
+
+  totalMinted = totalMinted + amount as Uint<64>;
+  mintToken(
+    coinDomainSeparator,
+    amount,
+    newNonce,
+    left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+
+  mintNonce = newNonce;
 }
 
 // Creates a new public offer for a given item.
@@ -181,15 +222,17 @@ export circuit setOfferEta(offerId: Bytes<32>, timestamp: Uint<128>): [] {
 // selected among the current fee bidders. Only the selected carrier can
 // then pick up the item for delivery.
 // OfferState: New => Purchased
-export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>): [] {
+export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>, coinInfo: CoinInfo): [] {
   const offer = checkOfferState(offerId, OfferState.New);
 
   assert(carrierBids.member(offer.id), "No carriers found for the offer");
   const disclosedCarrierId = disclose(carrierId);
   assert(carrierBids.lookup(offer.id).member(disclosedCarrierId), "Carrier not found among bidders");
   const fee = carrierBids.lookup(offer.id).lookup(disclosedCarrierId);
+  assert(coinInfo.value == offer.item.price + fee, "Deposit amount must be equal to the item price plus the carrier fee");
 
-  // TODO: handle deposit according to price and carrier fee
+  // deposit according to price and carrier fee
+  receiveDeposit(coinInfo);
 
   const buyerId = genBuyerId(ownPublicKey());
   const purchaseDetails =
@@ -200,16 +243,20 @@ export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>): [] {
   const updatedOffer =
                 Offer { ...offer, purchaseDetails: purchaseDetails, state: OfferState.Purchased };
   offers.insert(offer.id, updatedOffer);
+  carrierBids.remove(offer.id);
 }
 
 // Item is being picked up by the selected carrier, changing the offer state,
 // and locking the deposit made by the carrier according to the item's price.
 // OfferState: Purchased => PickedUp
-export circuit itemPickedUp(offerId: Bytes<32>, eta: Maybe<Uint<128>>): [] {
+export circuit itemPickedUp(offerId: Bytes<32>, coinInfo: CoinInfo, eta: Maybe<Uint<128>>): [] {
   const offer = checkOfferState(offerId, OfferState.Purchased);
   assert(isCallerTheCarrier(offer), "Only the selected carrier can pick this item up for delivery");
 
-  // TODO: handle deposit according to price
+  // deposit according to price and carrier fee
+  const fee = offer.purchaseDetails.value.carrierFee;
+  assert(coinInfo.value == offer.item.price + fee, "Deposit amount must be equal to the item price plus the carrier fee");
+  receiveDeposit(coinInfo);
 
   if (disclose(eta.is_some)) {
      setOfferState(Offer { ...offer, deliveryEta: disclose(eta.value) }, OfferState.PickedUp);
@@ -244,7 +291,16 @@ export circuit confirmDelivered(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Delivered);
   assert(isCallerTheBuyer(offer), "Only the buyer can confirm the item has been delivered");
 
-  // TODO: release deposits to each party
+  // release deposits to carrier, plus the owned carrier fee
+  const price = offer.item.price;
+  const fee = offer.purchaseDetails.value.carrierFee;
+  const amount = price + fee + fee;
+  const carrier = carriers.lookup(offer.purchaseDetails.value.selectedCarrierId);
+  sendPayment(carrier.wallet, amount as Uint<128>);
+
+  // release deposits to seller
+  const seller = sellers.lookup(offer.seller);
+  sendPayment(seller.wallet, price);
 
   setOfferState(offer, OfferState.Completed);
 }
@@ -414,4 +470,34 @@ export circuit genBuyerId(pk: ZswapCoinPublicKey): Bytes<32> {
 // Generates a carrier ID from a public key.
 export circuit genCarrierId(pk: ZswapCoinPublicKey): Bytes<32> {
   return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "dmarket_carrier_id:"), pk.bytes]));
+}
+
+// Receive a deposit and keep it in this contract's teasury
+circuit receiveDeposit(coinInfo: CoinInfo): [] {
+  // receive only dMarket color coins
+  assert(coinInfo.color == coinColor, "Only dMarket coins can be used for payments");
+
+  receive(disclose(coinInfo));
+  const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
+  if (!treasuryWithCoins) {
+     treasury.writeCoin(disclose(coinInfo), me);
+     treasuryWithCoins = true;
+  } else {
+     const mergedCoin = mergeCoinImmediate(treasury, disclose(coinInfo));
+     treasury.writeCoin(disclose(mergedCoin), me);
+  }
+}
+
+// Send a payment to the given PK and amount
+circuit sendPayment(to: ZswapCoinPublicKey, amount: Uint<128>): [] {
+  const wallet = left<ZswapCoinPublicKey, ContractAddress>(to);
+  const sendResult = send(treasury, wallet, disclose(amount));
+  assert(sendResult.sent.value == amount, "Failed to send payment");
+  const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
+  if (sendResult.change.is_some) {
+     treasury.writeCoin(sendResult.change.value, me);
+  } else {
+     treasuryWithCoins = false;
+     treasury.resetToDefault();
+  }
 }
