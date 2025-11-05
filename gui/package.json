@@ -1,11 +1,14 @@
 {
-  "name": "react-mn-wallet-connect",
+  "name": "dmarket-gui",
+  "author": "bochaco",
   "private": true,
   "version": "0.0.1",
-  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "rm -rf ./dist && tsc -b && vite build --mode testnet && cp ./public/image-not-found.svg ./dist && cp -r ../contract/src/managed/dmarket/keys ./dist/keys && cp -r ../contract/src/managed/dmarket/zkir ./dist/zkir",
+    "start": "http-server --port 0 ./dist",
+    "start-port": "http-server --port $PORT ./dist",
+    "build:start": "npm run build && npm run start",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -13,7 +16,7 @@
     "@tailwindcss/vite": "^4.1.16",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "tailwindcss": "^4.1.16"
+    "node-stdlib-browser": "^1.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

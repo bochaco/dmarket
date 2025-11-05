@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 
 interface RankingInputProps {
-  currentRating?: number;
+  currentRating?: bigint;
   onRate?: (rating: number) => void;
   disabled?: boolean;
   readOnly?: boolean;
   size?: 'sm' | 'md';
 }
 
-const Star: React.FC<{ filled: boolean; onMouseEnter?: () => void; onClick?: () => void; className?: string }> = ({ filled, onMouseEnter, onClick, className }) => (
+const Star: React.FC<{ filled: boolean; onMouseEnter?: () => void; onClick?: () => void; className?: string }> = ({
+  filled,
+  onMouseEnter,
+  onClick,
+  className,
+}) => (
   <svg
     onMouseEnter={onMouseEnter}
     onClick={onClick}
@@ -20,8 +25,13 @@ const Star: React.FC<{ filled: boolean; onMouseEnter?: () => void; onClick?: () 
   </svg>
 );
 
-
-const RankingInput: React.FC<RankingInputProps> = ({ currentRating = 0, onRate, disabled = false, readOnly = false, size = 'md' }) => {
+const RankingInput: React.FC<RankingInputProps> = ({
+  currentRating = 0,
+  onRate,
+  disabled = false,
+  readOnly = false,
+  size = 'md',
+}) => {
   const [hoverRating, setHoverRating] = useState(0);
   const isInteractive = !disabled && !readOnly && onRate;
 

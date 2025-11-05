@@ -1,26 +1,56 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { FormProps } from './DMarket';
+import { handleErrorForRendering } from './WorkInProgressModal';
 
-interface CreateOfferFormProps {
-  createOffer: (name: string, description: string, price: number, imageUrl: string) => Promise<void>;
-}
+const hash256 = async (str: string): Promise<Uint8Array> => {
+  const encoder = new TextEncoder();
+  const uint8Array = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
+  return new Uint8Array(hashBuffer);
+};
 
-const CreateOfferForm: React.FC<CreateOfferFormProps> = ({ createOffer }) => {
+const CreateOfferForm: React.FC<FormProps> = ({ dMarketApi, setIsWorking }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const createOffer = useCallback(
+    async (itemName: string, meta: string, itemPrice: bigint, sellerMeta: string) => {
+      if (dMarketApi) {
+        try {
+          setIsSubmitting(true);
+          setIsWorking({
+            onClose: null,
+            status: 'in-progress',
+            task: 'Publishing a new offer',
+            desc: `Item: ${itemName}`,
+          });
+          const id = await hash256(meta);
+          await dMarketApi.offerItem(id, itemPrice, meta, sellerMeta);
+          setIsWorking(null);
+          setName('');
+          setDescription('');
+          setPrice('');
+          setImageUrl('');
+        } catch (error) {
+          setIsWorking(handleErrorForRendering(error, 'Publishing a new offer'));
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    },
+    [dMarketApi],
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name && price && imageUrl && !isSubmitting) {
-      setIsSubmitting(true);
-      await createOffer(name, description, parseFloat(price), imageUrl);
-      setName('');
-      setDescription('');
-      setPrice('');
-      setImageUrl('');
-      setIsSubmitting(false);
+    if (dMarketApi && name && price && imageUrl && !isSubmitting) {
+      const itemMeta = JSON.stringify({ name, imageUrl, description });
+      // TODO: pre register the seller
+      const sellerMeta = JSON.stringify({ name: 'Peter' });
+      await createOffer(name, itemMeta, BigInt(price), sellerMeta);
     }
   };
 
@@ -39,7 +69,7 @@ const CreateOfferForm: React.FC<CreateOfferFormProps> = ({ createOffer }) => {
           />
           <input
             type="number"
-            placeholder="Price (ETH)"
+            placeholder="Price (DMRK)"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             className="w-full bg-brand-background border border-slate-700 rounded-lg px-4 py-3 text-brand-text-primary placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary transition"
@@ -62,6 +92,7 @@ const CreateOfferForm: React.FC<CreateOfferFormProps> = ({ createOffer }) => {
           onChange={(e) => setDescription(e.target.value)}
           className="w-full bg-brand-background border border-slate-700 rounded-lg px-4 py-3 text-brand-text-primary placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary transition"
           rows={4}
+          required
         />
         <button
           type="submit"

@@ -1,24 +1,56 @@
-import React, { useState } from 'react';
-import { Order } from '../types';
+import React, { useCallback, useState } from 'react';
+import { Offer } from '../types';
+import { FormProps } from './DMarket';
+import { handleErrorForRendering } from './WorkInProgressModal';
 
 interface EtaModalProps {
-  order: Order;
+  offer: Offer;
+  formProps: FormProps;
   onClose: () => void;
-  onSubmit: (orderId: number, newEta: string) => void;
 }
 
-const EtaModal: React.FC<EtaModalProps> = ({ order, onClose, onSubmit }) => {
+const formatDate = (date: Date) => {
+  return date.toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const EtaModal: React.FC<EtaModalProps> = ({ offer, formProps, onClose }) => {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+
+  const setOfferEta = useCallback(
+    async (offerId: string, itemName: string, newEta: Date) => {
+      if (formProps.dMarketApi) {
+        try {
+          const formattedEta = formatDate(newEta);
+          formProps.setIsWorking({
+            onClose: null,
+            status: 'in-progress',
+            task: 'Updating ETA for item delivery',
+            desc: `Item: ${itemName} - New ETA: ${formattedEta}`,
+          });
+          await formProps.dMarketApi.setOfferEta(offerId, BigInt(newEta.getTime()));
+          formProps.setIsWorking(null);
+        } catch (error) {
+          formProps.setIsWorking(handleErrorForRendering(error, 'Updating ETA for item delivery'));
+        }
+      }
+    },
+    [formProps.dMarketApi],
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (date && time) {
+      onClose();
       // Format the date and time into a readable string
-      const formattedEta = new Date(`${date}T${time}`).toLocaleString([], {
-        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-      });
-      onSubmit(order.id, formattedEta);
+      const eta = new Date(`${date}T${time}`);
+      setOfferEta(offer.id, offer.name, eta);
     }
   };
 
@@ -29,15 +61,22 @@ const EtaModal: React.FC<EtaModalProps> = ({ order, onClose, onSubmit }) => {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-2xl font-bold text-brand-text-primary">Update ETA</h2>
-              <p className="text-sm text-brand-text-secondary">For Order #{order.id}</p>
+              <p className="text-sm text-brand-text-secondary">For Order #{`${offer.id.substring(0, 10)}...`}</p>
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-brand-text-primary transition-colors text-2xl leading-none">&times;</button>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-brand-text-primary transition-colors text-2xl leading-none"
+            >
+              &times;
+            </button>
           </div>
-          
+
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 mb-6">
               <div>
-                <label htmlFor="eta-date" className="block text-sm font-medium text-brand-text-secondary mb-2">Delivery Date</label>
+                <label htmlFor="eta-date" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                  Delivery Date
+                </label>
                 <input
                   type="date"
                   id="eta-date"
@@ -48,7 +87,9 @@ const EtaModal: React.FC<EtaModalProps> = ({ order, onClose, onSubmit }) => {
                 />
               </div>
               <div>
-                <label htmlFor="eta-time" className="block text-sm font-medium text-brand-text-secondary mb-2">Delivery Time</label>
+                <label htmlFor="eta-time" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                  Delivery Time
+                </label>
                 <input
                   type="time"
                   id="eta-time"

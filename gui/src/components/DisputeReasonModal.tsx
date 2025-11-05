@@ -1,28 +1,43 @@
-import React, { useState } from "react";
-import { Order, DisputeReasonType } from "../types";
+import React, { useCallback, useState } from 'react';
+import { Offer, DisputeReasonType } from '../types';
+import { FormProps } from './DMarket';
+import { handleErrorForRendering } from './WorkInProgressModal';
 
 interface DisputeReasonModalProps {
-  order: Order | null;
-  onSubmit: (
-    orderId: number,
-    dispute: DisputeReasonType,
-    reason: string,
-  ) => void;
+  offer: Offer | null;
+  formProps: FormProps;
   onClose: () => void;
 }
 
-const DisputeReasonModal: React.FC<DisputeReasonModalProps> = ({
-  order,
-  onSubmit,
-  onClose,
-}) => {
-  const [reason, setReason] = useState("");
+const DisputeReasonModal: React.FC<DisputeReasonModalProps> = ({ offer, formProps, onClose }) => {
+  const [reason, setReason] = useState('');
   const [dispute, setDispute] = useState<DisputeReasonType | null>(null);
+
+  const disputeItem = useCallback(
+    async (offerId: string, itemName: string, dispute: DisputeReasonType, reason: string) => {
+      if (formProps.dMarketApi) {
+        try {
+          formProps.setIsWorking({
+            onClose: null,
+            status: 'in-progress',
+            task: 'Starting a dispute process for the item',
+            desc: `Item: ${itemName} - ${dispute}`,
+          });
+          await formProps.dMarketApi.disputeItem(offerId);
+          formProps.setIsWorking(null);
+        } catch (error) {
+          formProps.setIsWorking(handleErrorForRendering(error, 'Starting a dispute process for the item'));
+        }
+      }
+    },
+    [formProps.dMarketApi],
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (dispute && reason) {
-      onSubmit(order.id, dispute, reason);
+    if (dispute && reason && offer) {
+      onClose();
+      disputeItem(offer.id, offer.name, dispute, reason);
     }
   };
 
@@ -31,20 +46,20 @@ const DisputeReasonModal: React.FC<DisputeReasonModalProps> = ({
     title: string;
   }[] = [
     {
-      id: "defective",
-      title: "It is defective",
+      id: 'Defective',
+      title: 'It is defective',
     },
     {
-      id: "regreted",
-      title: "I regret the purchase",
+      id: 'Regreted',
+      title: 'I regret the purchase',
     },
     {
-      id: "wrong_size",
-      title: "It is not the size I ordered",
+      id: 'Wrong size',
+      title: 'It is not the size I ordered',
     },
     {
-      id: "other",
-      title: "Other reason",
+      id: 'Other',
+      title: 'Other reason',
     },
   ];
 
@@ -60,12 +75,8 @@ const DisputeReasonModal: React.FC<DisputeReasonModalProps> = ({
         <div className="p-8">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-brand-text-primary">
-                Dispute Details
-              </h2>
-              <p className="text-sm text-brand-text-secondary">
-                For Order #{order.id}
-              </p>
+              <h2 className="text-2xl font-bold text-brand-text-primary">Dispute Details</h2>
+              <p className="text-sm text-brand-text-secondary">For Offer #{`${offer?.id.substring(0, 10)}...`}</p>
             </div>
             <button
               onClick={onClose}
@@ -78,11 +89,8 @@ const DisputeReasonModal: React.FC<DisputeReasonModalProps> = ({
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 mb-6">
               <p className="text-sm text-brand-text-secondary">
-                Select a reason for the dispute regarding{" "}
-                <span className="font-bold text-brand-text-primary">
-                  "{order.offer.name}"
-                </span>
-                .
+                Select a reason for the dispute regarding{' '}
+                <span className="font-bold text-brand-text-primary">"{offer?.name}"</span>.
               </p>
 
               <div className="space-y-3">
@@ -91,8 +99,8 @@ const DisputeReasonModal: React.FC<DisputeReasonModalProps> = ({
                     key={option.id}
                     className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       dispute === option.id
-                        ? "border-brand-primary bg-cyan-500/10"
-                        : "border-slate-700 hover:border-brand-secondary"
+                        ? 'border-brand-primary bg-cyan-500/10'
+                        : 'border-slate-700 hover:border-brand-secondary'
                     }`}
                   >
                     <input
@@ -100,24 +108,17 @@ const DisputeReasonModal: React.FC<DisputeReasonModalProps> = ({
                       name="resolution"
                       value={option.id}
                       checked={dispute === option.id}
-                      onChange={() =>
-                        setDispute(option.id as DisputeReasonType)
-                      }
+                      onChange={() => setDispute(option.id as DisputeReasonType)}
                       className="h-4 w-4 text-brand-primary bg-slate-600 border-slate-500 focus:ring-brand-primary focus:ring-offset-brand-surface"
                     />
                     <div className="ml-4">
-                      <p className="font-semibold text-brand-text-primary">
-                        {option.title}
-                      </p>
+                      <p className="font-semibold text-brand-text-primary">{option.title}</p>
                     </div>
                   </label>
                 ))}
               </div>
 
-              <label
-                htmlFor="reason"
-                className="block text-sm font-medium text-brand-text-secondary mb-2"
-              >
+              <label htmlFor="reason" className="block text-sm font-medium text-brand-text-secondary mb-2">
                 Reason Provided by Buyer:
               </label>
               <textarea

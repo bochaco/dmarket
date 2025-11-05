@@ -1,31 +1,43 @@
-import React, { useState } from "react";
-// Fix: Import Order and DisputeResolutionType from types.ts, not App.tsx
-import { Order, DisputeResolutionType } from "../types";
+import React, { useCallback, useState } from 'react';
+import { Offer, DisputeResolutionType } from '../types';
+import { FormProps } from './DMarket';
+import { handleErrorForRendering } from './WorkInProgressModal';
 
 interface DisputeModalProps {
-  order: Order;
+  offer: Offer;
+  formProps: FormProps;
   onClose: () => void;
-  onSubmit: (
-    orderId: number,
-    resolution: DisputeResolutionType,
-    reason: string,
-  ) => void;
 }
 
-const DisputeModal: React.FC<DisputeModalProps> = ({
-  order,
-  onClose,
-  onSubmit,
-}) => {
-  const [resolution, setResolution] = useState<DisputeResolutionType | null>(
-    null,
+const DisputeModal: React.FC<DisputeModalProps> = ({ offer, formProps, onClose }) => {
+  const [resolution, setResolution] = useState<DisputeResolutionType | null>(null);
+  const [reason, setReason] = useState('');
+
+  const resolveDispute = useCallback(
+    async (offerId: string, itemName: string, resolution: DisputeResolutionType, reason: string) => {
+      if (formProps.dMarketApi) {
+        try {
+          formProps.setIsWorking({
+            onClose: null,
+            status: 'in-progress',
+            task: 'Resolving dispute for the item',
+            desc: `Item: ${itemName} - ${resolution}`,
+          });
+          await formProps.dMarketApi.resolveDispute(offerId);
+          formProps.setIsWorking(null);
+        } catch (error) {
+          formProps.setIsWorking(handleErrorForRendering(error, 'Resolving dispute for the item'));
+        }
+      }
+    },
+    [formProps.dMarketApi],
   );
-  const [reason, setReason] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (resolution && reason) {
-      onSubmit(order.id, resolution, reason);
+      onClose();
+      resolveDispute(offer.id, offer.name, resolution, reason);
     }
   };
 
@@ -35,22 +47,20 @@ const DisputeModal: React.FC<DisputeModalProps> = ({
     description: string;
   }[] = [
     {
-      id: "refund",
-      title: "Issue Full Refund",
-      description:
-        'The buyer will be fully refunded. The order will be marked as "Refunded".',
+      id: 'Refund',
+      title: 'Issue Full Refund',
+      description: 'The buyer will be fully refunded. The offer will be marked as "Refunded".',
     },
     {
-      id: "reject",
-      title: "Reject Dispute & Finalize Payment",
-      description:
-        'The dispute will be closed, and the order will be marked as "Completed".',
+      id: 'Reject',
+      title: 'Reject Dispute & Finalize Payment',
+      description: 'The dispute will be closed, and the offer will be marked as "Completed".',
     },
     {
-      id: "confiscate",
+      id: 'Confiscate',
       title: "Confiscate Carrier's Deposit",
       description:
-        "Select if carrier failed delivery (e.g., lost/damaged item). This refunds the buyer from the deposit.",
+        'Select if carrier failed delivery (e.g., lost/damaged item). This refunds the buyer from the deposit.',
     },
   ];
 
@@ -60,17 +70,12 @@ const DisputeModal: React.FC<DisputeModalProps> = ({
         <div className="p-8">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-brand-text-primary">
-                Dispute Resolution Center
-              </h2>
+              <h2 className="text-2xl font-bold text-brand-text-primary">Dispute Resolution Center</h2>
               <p className="text-sm text-brand-text-secondary">
-                Managing dispute for Order #{order.id}
+                Managing dispute for Offer #{`${offer.id.substring(0, 10)}...`}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-brand-text-primary transition-colors"
-            >
+            <button onClick={onClose} className="text-slate-400 hover:text-brand-text-primary transition-colors">
               &times;
             </button>
           </div>
@@ -78,11 +83,8 @@ const DisputeModal: React.FC<DisputeModalProps> = ({
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 mb-6">
               <p className="text-sm text-brand-text-secondary">
-                Select a resolution for the dispute regarding{" "}
-                <span className="font-bold text-brand-text-primary">
-                  "{order.offer.name}"
-                </span>
-                .
+                Select a resolution for the dispute regarding{' '}
+                <span className="font-bold text-brand-text-primary">"{offer.name}"</span>.
               </p>
 
               <div className="space-y-3">
@@ -91,8 +93,8 @@ const DisputeModal: React.FC<DisputeModalProps> = ({
                     key={option.id}
                     className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       resolution === option.id
-                        ? "border-brand-primary bg-cyan-500/10"
-                        : "border-slate-700 hover:border-brand-secondary"
+                        ? 'border-brand-primary bg-cyan-500/10'
+                        : 'border-slate-700 hover:border-brand-secondary'
                     }`}
                   >
                     <input
@@ -100,18 +102,12 @@ const DisputeModal: React.FC<DisputeModalProps> = ({
                       name="resolution"
                       value={option.id}
                       checked={resolution === option.id}
-                      onChange={() =>
-                        setResolution(option.id as DisputeResolutionType)
-                      }
+                      onChange={() => setResolution(option.id as DisputeResolutionType)}
                       className="h-4 w-4 text-brand-primary bg-slate-600 border-slate-500 focus:ring-brand-primary focus:ring-offset-brand-surface"
                     />
                     <div className="ml-4">
-                      <p className="font-semibold text-brand-text-primary">
-                        {option.title}
-                      </p>
-                      <p className="text-xs text-brand-text-secondary">
-                        {option.description}
-                      </p>
+                      <p className="font-semibold text-brand-text-primary">{option.title}</p>
+                      <p className="text-xs text-brand-text-secondary">{option.description}</p>
                     </div>
                   </label>
                 ))}
@@ -119,10 +115,7 @@ const DisputeModal: React.FC<DisputeModalProps> = ({
             </div>
 
             <div className="mb-6">
-              <label
-                htmlFor="reason"
-                className="block text-sm font-medium text-brand-text-secondary mb-2"
-              >
+              <label htmlFor="reason" className="block text-sm font-medium text-brand-text-secondary mb-2">
                 Reasoning / Message to Buyer
               </label>
               <textarea

@@ -1,5 +1,5 @@
-import { DMarketSimulator } from "./dmarket-simulator.js";
-import { toHex, fromHex } from "@midnight-ntwrk/midnight-js-utils";
+import { Item, DMarketSimulator } from "./dmarket-simulator.js";
+import { toHex } from "@midnight-ntwrk/midnight-js-utils";
 import {
   NetworkId,
   setNetworkId,
@@ -11,14 +11,9 @@ import {
   randomRatingNumber,
   randomCoinPublicKeyHex,
 } from "./utils.js";
-import {
-  TokenType,
-  encodeCoinPublicKey,
-} from "@midnight-ntwrk/compact-runtime";
-import { createCoinInfo, nativeToken } from "@midnight-ntwrk/ledger";
+import { createCoinInfo } from "@midnight-ntwrk/ledger";
 import {
   Offer,
-  Item,
   OfferState,
   PurchaseDetails,
 } from "../managed/dmarket/contract/index.cjs";
@@ -111,7 +106,7 @@ const publishOffer = (
     item.price + fee,
   );
   simulator.purchaseItem(offer.id, users.carrierId, coinInfoBuyer);
-  expect(simulator.getLedger().treasury.value).toEqual(offer.item.price + fee);
+  expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
   if (state == OfferState.Purchased) {
     return res;
   }
@@ -123,7 +118,7 @@ const publishOffer = (
   );
   simulator.itemPickedUp(offer.id, coinInfoCarrier, null);
   expect(simulator.getLedger().treasury.value).toEqual(
-    2n * (offer.item.price + fee),
+    2n * (offer.price + fee),
   );
   if (state == OfferState.PickedUp) {
     return res;
@@ -145,7 +140,7 @@ const publishOffer = (
     simulator.switchUser(users.buyerPwd, users.buyerPk);
     simulator.disputeItem(offer.id);
     expect(simulator.getLedger().treasury.value).toEqual(
-      2n * (offer.item.price + fee),
+      2n * (offer.price + fee),
     );
     return res;
   }
@@ -165,13 +160,16 @@ describe("dMarket smart contract", () => {
 
     const item = genRandomItem();
 
+    expect(() => simulator.offerItem({ ...item, price: 0 })).toThrow();
+
     const offer = simulator.offerItem(item);
     expect(() => simulator.offerItem(item)).toThrow(
       "failed assert: Offer already exists",
     );
     expect(simulator.getLedger().offers.isEmpty()).toBe(false);
     expect(offer.id).toEqual(simulator.genOfferId(item, mySellerId));
-    expect(offer.item).toEqual(item);
+    expect(offer.price).toEqual(item.price);
+    expect(offer.meta).toEqual(item.meta);
     expect(offer.state).toEqual(OfferState.New);
     expect(offer.seller).toEqual(mySellerId);
     expect(offer.purchaseDetails.is_some).toBe(false);
@@ -241,9 +239,7 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
       buildUpdatedOffer(offer, users, OfferState.Purchased, fee),
     );
-    expect(simulator.getLedger().treasury.value).toEqual(
-      offer.item.price + fee,
-    );
+    expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
   });
 
   it("invalid deposits for purchasing an item", () => {
@@ -251,7 +247,7 @@ describe("dMarket smart contract", () => {
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
     const { offer, fee } = publishOffer(simulator, users, OfferState.New);
     expect(simulator.getLedger().treasury.value).toEqual(0n);
-    const rightAmount = offer.item.price + fee;
+    const rightAmount = offer.price + fee;
 
     let nonNativeCoinInfo = createCoinInfo(
       `0200${toHex(randomBytes(32))}`,
@@ -288,10 +284,7 @@ describe("dMarket smart contract", () => {
     const users = randomUsers();
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
     const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
-    let coinInfo = createCoinInfo(
-      simulator.getCoinColor(),
-      offer.item.price + fee,
-    );
+    let coinInfo = createCoinInfo(simulator.getCoinColor(), offer.price + fee);
 
     const eta = randomNumber(null);
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
@@ -314,7 +307,7 @@ describe("dMarket smart contract", () => {
     updatedOffer.deliveryEta = eta;
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(updatedOffer);
     expect(simulator.getLedger().treasury.value).toEqual(
-      2n * (offer.item.price + fee),
+      2n * (offer.price + fee),
     );
   });
 
@@ -322,11 +315,9 @@ describe("dMarket smart contract", () => {
     const users = randomUsers();
     const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
     const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
-    const rightAmount = offer.item.price + fee;
+    const rightAmount = offer.price + fee;
     simulator.switchUser(users.carrierPwd, users.carrierPk);
-    expect(simulator.getLedger().treasury.value).toEqual(
-      offer.item.price + fee,
-    );
+    expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
 
     let nonNativeCoinInfo = createCoinInfo(
       `0200${toHex(randomBytes(32))}`,
@@ -356,9 +347,7 @@ describe("dMarket smart contract", () => {
       "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
     );
 
-    expect(simulator.getLedger().treasury.value).toEqual(
-      offer.item.price + fee,
-    );
+    expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
   });
 
   it("seller confirms carrier has picked up a purchased item", () => {
@@ -380,7 +369,7 @@ describe("dMarket smart contract", () => {
       buildUpdatedOffer(offer, users, OfferState.InTransit, fee),
     );
     expect(simulator.getLedger().treasury.value).toEqual(
-      2n * (offer.item.price + fee),
+      2n * (offer.price + fee),
     );
   });
 
@@ -428,7 +417,7 @@ describe("dMarket smart contract", () => {
       buildUpdatedOffer(offer, users, OfferState.Delivered, fee),
     );
     expect(simulator.getLedger().treasury.value).toEqual(
-      2n * (offer.item.price + fee),
+      2n * (offer.price + fee),
     );
   });
 
@@ -472,7 +461,7 @@ describe("dMarket smart contract", () => {
       buildUpdatedOffer(offer, users, OfferState.Dispute, fee),
     );
     expect(simulator.getLedger().treasury.value).toEqual(
-      2n * (offer.item.price + fee),
+      2n * (offer.price + fee),
     );
   });
 

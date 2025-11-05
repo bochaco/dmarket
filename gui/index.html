@@ -1,34 +1,32 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="/src/index.css" />
-        <title>Decentralized Escrow Marketplace</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            "brand-primary": "var(--color-brand-primary)",
-                            "brand-secondary": "var(--color-brand-secondary)",
-                            "brand-accent": "var(--color-brand-accent)",
-                            "brand-background": "var(--color-brand-background)",
-                            "brand-surface": "var(--color-brand-surface)",
-                            "brand-text-primary":
-                                "var(--color-brand-text-primary)",
-                            "brand-text-secondary":
-                                "var(--color-brand-text-secondary)",
-                        },
-                    },
-                },
-            };
-        </script>
-    </head>
-    <body class="bg-brand-background text-brand-text-primary">
-        <div id="root"></div>
-        <script type="module" src="/src/main.tsx"></script>
-    </body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/dmarket.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/src/index.css" />
+    <title>Decentralized Escrow Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': 'var(--color-brand-primary)',
+              'brand-secondary': 'var(--color-brand-secondary)',
+              'brand-accent': 'var(--color-brand-accent)',
+              'brand-background': 'var(--color-brand-background)',
+              'brand-surface': 'var(--color-brand-surface)',
+              'brand-text-primary': 'var(--color-brand-text-primary)',
+              'brand-text-secondary': 'var(--color-brand-text-secondary)',
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-brand-background text-brand-text-primary">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

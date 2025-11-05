@@ -1,81 +1,69 @@
 // types.ts
 export enum UserRole {
-  Buyer = "Buyer",
-  Seller = "Seller",
-  Carrier = "Carrier",
+  Buyer = 'Buyer',
+  Seller = 'Seller',
+  Carrier = 'Carrier',
 }
 
-export enum OrderStatus {
-  AwaitingCarrierAcceptance = "Awaiting Carrier Acceptance",
-  AwaitingPickupConfirmation = "Awaiting Pickup Confirmation",
-  InTransit = "In Transit",
-  AwaitingScan = "Awaiting Scan Confirmation",
-  Delivered = "Delivered",
-  Completed = "Completed",
-  DisputeOpened = "Dispute Opened",
-  Cancelled = "Cancelled",
-  Refunded = "Refunded",
-  AwaitingArbitration = "Awaiting Arbitration",
+export enum OfferStatus {
+  Available = 'Available',
+  AwaitingCarrierAcceptance = 'Awaiting Carrier Acceptance',
+  AwaitingPickupConfirmation = 'Awaiting Pickup Confirmation',
+  InTransit = 'In Transit',
+  Delivered = 'Delivered',
+  Completed = 'Completed',
+  DisputeOpened = 'Dispute Opened',
+  Cancelled = 'Cancelled',
+  Refunded = 'Refunded',
   CarrierDepositConfiscated = "Carrier's Deposit Confiscated",
 }
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
-  role: UserRole[];
+  role: UserRole;
   ratings: {
-    average: number;
-    count: number;
+    average: bigint;
+    count: bigint;
   };
 }
 
 export interface CarrierBid {
   carrier: User;
-  fee: number;
+  fee: bigint;
 }
 
 export interface Offer {
-  id: number;
+  id: string;
+  status: OfferStatus;
+  eta: Date | null;
   name: string;
   description: string;
-  price: number;
-  imageUrls: string[]; // Changed from imageUrl to support gallery
+  price: bigint;
+  imageUrls: string[];
   seller: User;
   bids: CarrierBid[];
-}
-
-export interface Order {
-  id: number;
-  offer: Offer;
-  buyer: User;
-  carrier: User; // No longer nullable
-  deliveryFee: number; // Added delivery fee
-  status: OrderStatus;
-  eta: string | null;
-  trackingId: string;
-  deliveredTimestamp?: number | null; // For auto-confirmation timer
-  rankings?: {
-    buyer?: {
-      ratedSeller?: boolean;
-      ratedCarrier?: boolean;
+  purchaseDetails: {
+    buyer: User;
+    carrier: User;
+    deliveryFee: bigint;
+  } | null;
+  ratings: {
+    buyer: {
+      ratedBySeller: bigint;
+      ratedByCarrier: bigint;
     };
-    seller?: {
-      ratedBuyer?: boolean;
+    seller: {
+      ratedByCarrier: bigint;
+      ratedByBuyer: bigint;
     };
-    carrier?: {
-      ratedBuyer?: boolean;
+    carrier: {
+      ratedBySeller: bigint;
+      ratedByBuyer: bigint;
     };
   };
 }
 
-export type DisputeReasonType =
-  | "defective"
-  | "regreted"
-  | "wrong_size"
-  | "other";
+export type DisputeReasonType = 'Defective' | 'Regreted' | 'Wrong size' | 'Other';
 
-export type DisputeResolutionType =
-  | "refund"
-  | "reject"
-  | "escalate"
-  | "confiscate";
+export type DisputeResolutionType = 'Refund' | 'Reject' | 'Confiscate';

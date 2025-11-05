@@ -23,6 +23,12 @@ import { type DMarketPrivateState, witnesses } from "../witnesses.js";
 import { encodeCoinInfo } from "@midnight-ntwrk/ledger";
 import { randomBytes } from "./utils.js";
 
+export interface Item {
+  itemId: Uint8Array;
+  price: bigint;
+  meta: string;
+}
+
 /**
  * Serves as a testbed to exercise the contract in tests
  */
@@ -82,21 +88,29 @@ export class DMarketSimulator {
     return res.result;
   }
 
-  public offerItem(item: Item): Offer {
+  public offerItem(item: Item, sellerMeta: string): Offer {
     // Update the current context to be the result of executing the circuit.
     const res = this.contract.impureCircuits.offerItem(
       this.circuitContext,
-      item,
+      item.id,
+      item.price,
+      item.meta,
+      sellerMeta,
     );
     this.circuitContext = res.context;
     return res.result;
   }
 
-  public setCarrierBid(offerId: Uint8Array, fee: bigint): [] {
+  public setCarrierBid(
+    offerId: Uint8Array,
+    fee: bigint,
+    carrierMeta: string,
+  ): [] {
     const res = this.contract.circuits.setCarrierBid(
       this.circuitContext,
       offerId,
       fee,
+      carrierMeta,
     );
     this.circuitContext = res.context;
     return res.result;
@@ -219,8 +233,9 @@ export class DMarketSimulator {
   public genOfferId(item: Item, sellerId: Uint8Array): Uint8Array {
     return this.contract.circuits.genOfferId(
       this.circuitContext,
-      item,
       sellerId,
+      item.id,
+      item.price,
     ).result;
   }
 

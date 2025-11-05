@@ -1,20 +1,45 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Offer } from '../types';
+import { FormProps } from './DMarket';
+import { handleErrorForRendering } from './WorkInProgressModal';
 
 interface BidModalProps {
   offer: Offer;
   onClose: () => void;
-  onSubmit: (offerId: number, fee: number) => void;
+  formProps: FormProps;
 }
 
-const BidModal: React.FC<BidModalProps> = ({ offer, onClose, onSubmit }) => {
+const BidModal: React.FC<BidModalProps> = ({ offer, onClose, formProps }) => {
   const [fee, setFee] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePlaceBid = useCallback(
+    async (offerId: string, feeValue: bigint, carrierMeta: string) => {
+      if (formProps.dMarketApi) {
+        try {
+          formProps.setIsWorking({
+            onClose: null,
+            status: 'in-progress',
+            task: 'Adding a fee bid to the offer',
+            desc: `Item: ${offer.name}`,
+          });
+          await formProps.dMarketApi.setCarrierBid(offerId, feeValue, carrierMeta);
+          formProps.setIsWorking(null);
+        } catch (error) {
+          formProps.setIsWorking(handleErrorForRendering(error, 'Adding a fee bid to the offer'));
+        }
+      }
+    },
+    [formProps.dMarketApi],
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const feeValue = parseFloat(fee);
-    if (!isNaN(feeValue) && feeValue > 0) {
-      onSubmit(offer.id, feeValue);
+    const feeValue = BigInt(fee);
+    if (feeValue > 0) {
+      onClose();
+      // TODO: pre register the carrier
+      const carrierMeta = JSON.stringify({ name: 'John' });
+      await handlePlaceBid(offer.id, feeValue, carrierMeta);
     }
   };
 
@@ -27,22 +52,29 @@ const BidModal: React.FC<BidModalProps> = ({ offer, onClose, onSubmit }) => {
               <h2 className="text-2xl font-bold text-brand-text-primary">Place Your Bid</h2>
               <p className="text-sm text-brand-text-secondary">For "{offer.name}"</p>
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-brand-text-primary transition-colors text-2xl leading-none">&times;</button>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-brand-text-primary transition-colors text-2xl leading-none"
+            >
+              &times;
+            </button>
           </div>
-          
+
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 mb-6">
               <div>
-                <label htmlFor="bid-fee" className="block text-sm font-medium text-brand-text-secondary mb-2">Delivery Fee (ETH)</label>
+                <label htmlFor="bid-fee" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                  Delivery Fee (DMRK)
+                </label>
                 <input
                   type="number"
                   id="bid-fee"
                   value={fee}
                   onChange={(e) => setFee(e.target.value)}
                   className="w-full bg-brand-background border border-slate-700 rounded-lg px-4 py-3 text-brand-text-primary placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary transition"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="e.g., 0.1"
+                  step="1"
+                  min="1"
+                  placeholder="e.g., 100"
                   required
                 />
               </div>
