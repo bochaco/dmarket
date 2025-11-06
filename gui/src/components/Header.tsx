@@ -8,7 +8,6 @@ interface HeaderProps {
   currentRole: UserRole;
   contractAddress: string;
   setCurrentRole: (role: UserRole) => void;
-  isWalletConnected: boolean;
   disconnectContract: () => void;
   formProps: FormProps;
 }
@@ -17,7 +16,6 @@ const Header: React.FC<HeaderProps> = ({
   currentRole,
   contractAddress,
   setCurrentRole,
-  isWalletConnected,
   disconnectContract,
   formProps,
 }) => {
@@ -121,7 +119,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <button
               onClick={onMintCoins}
-              disabled={!isWalletConnected}
+              disabled={!formProps.dMarketApi}
               className="flex items-center justify-center px-4 py-2 text-sm font-medium rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-background focus:ring-brand-secondary bg-gradient-to-r from-brand-secondary to-purple-600 text-white hover:from-fuchsia-500 hover:to-purple-500 shadow-lg shadow-fuchsia-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:from-brand-secondary disabled:hover:to-purple-600"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">

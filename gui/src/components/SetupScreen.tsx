@@ -75,6 +75,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onComplete }) => {
             type="password"
             placeholder="Enter a Password"
             value={password}
+            autoComplete="off"
             onChange={(e) => setPassword(e.target.value)}
             className="w-full bg-brand-background border border-slate-700 rounded-lg px-4 py-3 text-brand-text-primary placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary transition"
             required

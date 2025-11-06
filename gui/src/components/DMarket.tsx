@@ -49,8 +49,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
   const [openingDispute, setOpeningDispute] = useState<Offer | null>(null);
   const [managingDisputeOrder, setManagingDisputeOrder] = useState<Offer | null>(null);
 
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-
   // Subscribes to the `dMarketDeployment$` observable so that we can receive updates on the deployment.
   useEffect(() => {
     if (!dMarketDeployment$) {
@@ -67,16 +65,19 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
   // reflect the error was received instead.
   useEffect(() => {
     if (!dMarketDeployment) {
+      console.log(`No dMarket connection.`);
       return;
     }
     if (dMarketDeployment.status === 'init') {
+      console.log(`dMarket connection status: ${dMarketDeployment.status}`);
       return;
     }
     if (dMarketDeployment.status === 'in-progress') {
+      console.log(`dMarket connection status: ${dMarketDeployment.status}`);
       return;
     }
     if (dMarketDeployment.status === 'failed') {
-      setIsWalletConnected(false);
+      console.log(`dMarket connection failed: ${JSON.stringify(dMarketDeployment.error)}`);
       setContractAddress('');
       setIsWorking({
         ...handleErrorForRendering(dMarketDeployment.error, 'Establishing connection to the Contract'),
@@ -86,19 +87,20 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
       });
       return;
     }
+    console.log(`dMarket connection status: ${dMarketDeployment.status}`);
+
+    setDMarketAPI(dMarketDeployment.api);
+    setContractAddress(dMarketDeployment.api.deployedContractAddress);
+    setIsWorking(null);
+    setIsSetupComplete(true);
 
     // We need the DMarket API as well as subscribing to its `state$` observable, so that we can invoke
     // the methods later.
-    setDMarketAPI(dMarketDeployment.api);
-    setContractAddress(dMarketDeployment.api.deployedContractAddress);
     const subscription = dMarketDeployment.api.state$.subscribe(setDMarketState);
-    setIsWorking(null);
-    setIsWalletConnected(true);
-    setIsSetupComplete(true);
     return () => {
       subscription.unsubscribe();
     };
-  }, [dMarketDeployment, setIsWorking, setDMarketAPI]);
+  }, [dMarketDeployment, setDMarketAPI]);
 
   // Read current list of offers when we get a state update
   useEffect(() => {
@@ -129,8 +131,8 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
             task: 'Deploying new dMarket Contract',
             desc: `Please wait...`,
           });
-          // FIXME!!!!!!
           const initNonce = new Uint8Array(32);
+          window.crypto.getRandomValues(initNonce);
           dMarketApiProvider.create(initNonce, accountPassword);
         }
         setIsSetupComplete(true);
@@ -152,7 +154,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
       setUsers([]);
       setOffers([]);
       setContractAddress('');
-      setIsWalletConnected(false);
       setIsWorking(null);
       setIsSetupComplete(false);
     }
@@ -162,17 +163,14 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
     // TODO!!!!!!
   };
 
-  const offersAvailable = offers.filter((offer) => {
-    return offer.status === OfferStatus.Available;
-  });
-  /*
+  const offersAvailable =
     currentRole === UserRole.Carrier || currentRole === UserRole.Buyer
       ? offers
       : offers.filter((offer) => {
-          return false;
-          //return offer.seller.id === users.find((u) => u.role.includes(UserRole.Seller))!.id;
+          // TODO: filter by myUserId
+          // return offer.seller.id === myUserId;
+          return true;
         });
-      */
 
   const allVisibleOrders = offers.filter((offer) => {
     switch (offer.status) {
@@ -180,21 +178,15 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
         return false;
         break;
       default:
+        /* TODO: filter by myUserId
+        if (currentRole === UserRole.Seller) return offer.seller.id === myUserId;
+        if (currentRole === UserRole.Buyer) return offer.purchaseDetails.buyer.id === myUserId
+        if (currentRole === UserRole.Carrier) return offer.purchaseDetails.carrier.id === carrier.id;
+        return false;
+        */
         return true;
     }
   });
-  /*
-  offers.filter((offer) => {
-    const buyer = users.find((u) => u.role.includes(UserRole.Buyer))!;
-    const seller = users.find((u) => u.role.includes(UserRole.Seller))!;
-    const carrier = users.find((u) => u.role.includes(UserRole.Carrier))!;
-
-    if (currentRole === UserRole.Buyer) return offer.buyer.id === buyer.id;
-    if (currentRole === UserRole.Seller) return offer.seller.id === seller.id;
-    if (currentRole === UserRole.Carrier) return offer.carrier?.id === carrier.id;
-    return false;
-    });
-    */
 
   const getSectionTitle = () => {
     switch (currentRole) {
@@ -228,7 +220,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({ dMarketDeployment$ }
         currentRole={currentRole}
         contractAddress={contractAddress}
         setCurrentRole={setCurrentRole}
-        isWalletConnected={isWalletConnected}
         disconnectContract={handleDisconnect}
         formProps={{ dMarketApi, setIsWorking }}
       />
