@@ -10,13 +10,13 @@ import CompactStandardLibrary;
 - Dispute Resolution: The seller currently acts as the arbitrator for disputes initiated by the buyer. In future versions, an option for selecting an external arbitrator service will be available.
 
 TODO:
+- Allow the seller to set the location where to pick up the item for carriers to know how to calculate their proposed fee.
+- Allow carriers to provide details of different delivery options, with different destination areas/distances, as part of the bidding process.
 - Anonymization: Implement anonymization for sellers, buyers, and carriers using OpenZeppelin tools.
-- Testing: Develop tests for circuit functionality to check states.
-- Allow to specify type of dispute and type of resolution.
+- Testing: Develop tests for circuit check Offer state validation.
+- Allow to store in the ledger the type of dispute and type of resolution.
 - Deposits management for dispute resolutions.
 - Encrypt delivery address to the selected carrier's PK
-- Check ratings are not greater than 255
-- Store reason of dispute and type of resolution
 ****/
 
 // Information kept for registered carriers
@@ -314,7 +314,7 @@ export circuit resolveDispute(offerId: Bytes<32>): [] {
 // The carrier or buyer of the offer can rate the seller, and only once.
 // OfferState: Completed => Completed
 export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
-  assert(rating > 0, "Rate needs to be greater than 0");
+  assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isBuyer = isCallerTheBuyer(offer);
   const isCarrier = isCallerTheCarrier(offer);
@@ -337,7 +337,7 @@ export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
 // The buyer or seller of the offer can rate the carrier, and only once.
 // OfferState: Completed => Completed
 export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
-  assert(rating > 0, "Rate needs to be greater than 0");
+  assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isBuyer = isCallerTheBuyer(offer);
   const isSeller = isCallerTheSeller(offer);
@@ -360,7 +360,7 @@ export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
 // The carrier or seller of the offer can rate the buyer, and only once.
 // OfferState: Completed => Completed
 export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
-  assert(rating > 0, "Rate needs to be greater than 0");
+  assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
   const isCarrier = isCallerTheCarrier(offer);
   const isSeller = isCallerTheSeller(offer);

@@ -5,19 +5,17 @@ import {
   constructorContext,
   emptyZswapLocalState,
   CoinInfo,
-  encodeContractAddress,
-  dummyContractAddress,
   assert,
   encodeCoinPublicKey,
-  decodeTokenType,
   TokenType,
+  tokenType,
+  ContractAddress,
 } from "@midnight-ntwrk/compact-runtime";
 import {
   Contract,
   type Ledger,
   ledger,
   Offer,
-  Item,
 } from "../managed/dmarket/contract/index.cjs";
 import { type DMarketPrivateState, witnesses } from "../witnesses.js";
 import { encodeCoinInfo } from "@midnight-ntwrk/ledger";
@@ -34,9 +32,11 @@ export interface Item {
  */
 export class DMarketSimulator {
   readonly contract: Contract<DMarketPrivateState>;
+  readonly contractAddress: ContractAddress;
   circuitContext: CircuitContext<DMarketPrivateState>;
 
   constructor(secretKey: Uint8Array, senderPk: string) {
+    this.contractAddress = sampleContractAddress();
     this.contract = new Contract<DMarketPrivateState>(witnesses);
     const {
       currentPrivateState,
@@ -52,7 +52,7 @@ export class DMarketSimulator {
       originalState: currentContractState,
       transactionContext: new QueryContext(
         currentContractState.data,
-        sampleContractAddress(),
+        this.contractAddress,
       ),
     };
   }
@@ -75,7 +75,10 @@ export class DMarketSimulator {
   }
 
   public getCoinColor(): TokenType {
-    return decodeTokenType(this.getLedger().coinColor);
+    return tokenType(
+      this.getLedger().coinDomainSeparator,
+      this.contractAddress,
+    );
   }
 
   public getPrivateState(): DMarketPrivateState {

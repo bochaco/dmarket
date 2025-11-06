@@ -505,10 +505,14 @@ describe("dMarket smart contract", () => {
       "failed assert: Only the seller or carrier of the offer can rate the buyer",
     );
 
-    const zeroRateErr = "failed assert: Rate needs to be greater than 0";
-    expect(() => simulator.rateSeller(offer.id, 0n)).toThrow(zeroRateErr);
-    expect(() => simulator.rateCarrier(offer.id, 0n)).toThrow(zeroRateErr);
-    expect(() => simulator.rateBuyer(offer.id, 0n)).toThrow(zeroRateErr);
+    const rateErr =
+      "failed assert: Rate needs to be greater than 0 and smaller than 256";
+    expect(() => simulator.rateSeller(offer.id, 0n)).toThrow(rateErr);
+    expect(() => simulator.rateCarrier(offer.id, 0n)).toThrow(rateErr);
+    expect(() => simulator.rateBuyer(offer.id, 0n)).toThrow(rateErr);
+    expect(() => simulator.rateSeller(offer.id, 256n)).toThrow();
+    expect(() => simulator.rateCarrier(offer.id, 256n)).toThrow();
+    expect(() => simulator.rateBuyer(offer.id, 256n)).toThrow();
 
     const sellerRatings: [bigint, bigint] = [
       randomRatingNumber(),
