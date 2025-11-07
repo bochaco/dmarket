@@ -12,7 +12,6 @@ import CompactStandardLibrary;
 TODO:
 - Allow the seller to set the location where to pick up the item for carriers to know how to calculate their proposed fee.
 - Allow carriers to provide details of different delivery options, with different destination areas/distances, as part of the bidding process.
-- Testing: Develop tests for circuit check Offer state validation.
 - Allow to store in the ledger the type of dispute and type of resolution.
 - Deposits management for dispute resolutions.
 - Encrypt delivery address to the selected carrier's PK

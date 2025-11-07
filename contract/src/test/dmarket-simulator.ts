@@ -63,9 +63,6 @@ export class DMarketSimulator {
    * Switch to a different secret key for a different user
    */
   public switchUser(secretKey: Uint8Array, senderPk: string) {
-    const diffPwdOrPk =
-      this.circuitContext.currentPrivateState.secretKey !== secretKey;
-    assert(diffPwdOrPk, "Cannot switch user with same Password");
     this.circuitContext.currentZswapLocalState = emptyZswapLocalState(senderPk);
     this.circuitContext.currentPrivateState = {
       secretKey,

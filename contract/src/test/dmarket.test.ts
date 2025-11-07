@@ -94,6 +94,7 @@ const publishOffer = (
 ): { offer: Offer; fee: bigint } => {
   const item = genRandomItem();
   const fee = randomNumber(10);
+  simulator.switchUser(users.sellerPwd, users.sellerPk);
   const offer = simulator.offerItem(item);
   const res = { offer: offer, fee: fee };
 
@@ -560,6 +561,25 @@ describe("dMarket smart contract", () => {
   });
 
   it("circuits validate offer state", () => {
-    // TODO!!!
+    const [users, simulator] = randomUsers();
+
+    let offer = publishOffer(simulator, users, OfferState.New).offer;
+    const coinInfo = createCoinInfo(simulator.getCoinColor(), offer.price);
+    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    expect(() => simulator.itemPickedUp(offer.id, coinInfo, null)).toThrow(
+      "failed assert: Item has not been purchased or already picked up",
+    );
+
+    offer = publishOffer(simulator, users, OfferState.Purchased).offer;
+    simulator.switchUser(users.sellerPwd, users.sellerPk);
+    expect(() => simulator.confirmItemInTransit(offer.id)).toThrow(
+      "failed assert: Item has not been purchased or already confirmed as picked up",
+    );
+    expect(() => simulator.confirmDelivered(offer.id)).toThrow(
+      "failed assert: The item was already confirmed as delivered, or it has not been delivered yet",
+    );
+    expect(() => simulator.disputeItem(offer.id)).toThrow(
+      "failed assert: The item was already confirmed as delivered, or it has not been delivered yet",
+    );
   });
 });

@@ -22,7 +22,7 @@
 import { type MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 import { type FoundContract } from '@midnight-ntwrk/midnight-js-contracts';
 import type { Carrier, Seller, Offer, DMarketPrivateState, Contract, Witnesses } from '../../contract/src/index';
-import { DomainSeperator, TokenType } from '@midnight-ntwrk/compact-runtime';
+import { DomainSeperator } from '@midnight-ntwrk/compact-runtime';
 
 export const dMarketPrivateStateKey = 'dMarketPrivateState';
 export type PrivateStateId = typeof dMarketPrivateStateKey;
