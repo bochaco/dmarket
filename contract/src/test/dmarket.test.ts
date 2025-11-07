@@ -41,26 +41,29 @@ type TestUsers = {
   buyerId: Uint8Array;
 };
 
-const randomUsers = (): TestUsers => {
-  const simulator = new DMarketSimulator(
-    randomBytes(32),
-    randomCoinPublicKeyHex(),
-  );
+// Generate random users, and a simulator instantiated with the generated random seller
+const randomUsers = (): [TestUsers, DMarketSimulator] => {
+  const sellerPwd = randomBytes(32);
+  const sellerPk = randomCoinPublicKeyHex();
   const users = {
-    sellerPk: randomCoinPublicKeyHex(),
-    sellerPwd: randomBytes(32),
+    sellerPk,
+    sellerPwd,
     carrierPk: randomCoinPublicKeyHex(),
     carrierPwd: randomBytes(32),
     buyerPk: randomCoinPublicKeyHex(),
     buyerPwd: randomBytes(32),
   };
 
-  return {
-    ...users,
-    sellerId: simulator.genSellerId(users.sellerPk),
-    carrierId: simulator.genCarrierId(users.carrierPk),
-    buyerId: simulator.genBuyerId(users.buyerPk),
-  };
+  const simulator = new DMarketSimulator(sellerPwd, sellerPk);
+  return [
+    {
+      ...users,
+      sellerId: simulator.genSellerId(users.sellerPk, users.sellerPwd),
+      carrierId: simulator.genCarrierId(users.carrierPk, users.carrierPwd),
+      buyerId: simulator.genBuyerId(users.buyerPk, users.buyerPwd),
+    },
+    simulator,
+  ];
 };
 
 const buildUpdatedOffer = (
@@ -156,7 +159,7 @@ describe("dMarket smart contract", () => {
     const pk = randomCoinPublicKeyHex();
     const pwd = randomBytes(32);
     const simulator = new DMarketSimulator(pwd, pk);
-    const mySellerId = simulator.genSellerId(pk);
+    const mySellerId = simulator.genSellerId(pk, pwd);
 
     const item = genRandomItem();
 
@@ -183,8 +186,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("setting carrier bids to an offer", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.New);
 
     const ledgerOffer = simulator.getLedger().offers.lookup(offer.id);
@@ -209,8 +211,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("purchase an item selecting a carrier", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
 
     const item = genRandomItem();
     const fee = randomNumber(10);
@@ -243,8 +244,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("invalid deposits for purchasing an item", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.New);
     expect(simulator.getLedger().treasury.value).toEqual(0n);
     const rightAmount = offer.price + fee;
@@ -281,8 +281,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("carrier picks up a purchased item", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
     let coinInfo = createCoinInfo(simulator.getCoinColor(), offer.price + fee);
 
@@ -312,8 +311,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("invalid deposits for picking an item up", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
     const rightAmount = offer.price + fee;
     simulator.switchUser(users.carrierPwd, users.carrierPk);
@@ -351,8 +349,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("seller confirms carrier has picked up a purchased item", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.PickedUp);
 
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
@@ -374,8 +371,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("carrier updates delivery ETA", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.InTransit);
 
     const timestamp = randomNumber(null);
@@ -399,8 +395,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("carrier delivered the purchased item", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.InTransit);
 
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
@@ -422,8 +417,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("buyer confirms the purchased item has been delivered", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Delivered);
 
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
@@ -443,8 +437,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("buyer opens a dispute on a purchased item", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Delivered);
 
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
@@ -466,8 +459,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("seller resolves a dispute on a purchased item", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Dispute);
 
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
@@ -490,8 +482,7 @@ describe("dMarket smart contract", () => {
   });
 
   it("users set rating after purchased is completed", () => {
-    const users = randomUsers();
-    const simulator = new DMarketSimulator(users.sellerPwd, users.sellerPk);
+    const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Completed);
 
     simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());

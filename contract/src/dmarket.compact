@@ -12,7 +12,6 @@ import CompactStandardLibrary;
 TODO:
 - Allow the seller to set the location where to pick up the item for carriers to know how to calculate their proposed fee.
 - Allow carriers to provide details of different delivery options, with different destination areas/distances, as part of the bidding process.
-- Anonymization: Implement anonymization for sellers, buyers, and carriers using OpenZeppelin tools.
 - Testing: Develop tests for circuit check Offer state validation.
 - Allow to store in the ledger the type of dispute and type of resolution.
 - Deposits management for dispute resolutions.
@@ -122,6 +121,14 @@ export ledger offers: Map<Bytes<32>, Offer>;
 // Maps the offer IDs to the carriers offered to deliver the item and their bidding fee price.
 export ledger carrierBids: Map<Bytes<32>, Map<Bytes<32>, Uint<128>>>;
 
+/**
+ * @witness secretKey
+ * @description A private per-user nonce used in deriving the shielded user identifier.
+ * Combined with the user's public key to produce an obfuscated,
+ * unlinkable identity commitment.
+ */
+witness secretKey(): Bytes<32>;
+
 // Construction circuit, where coin domain separator and color are defined.
 // An initial nonce is provided which is then to generate new nonces for coin minting.
 constructor(initNonce: Bytes<32>) {
@@ -154,7 +161,7 @@ export circuit offerItem(
                  itemMeta: Opaque<'string'>,
                  sellerMeta: Opaque<'string'>
                  ): Offer {
-  const sellerId = genSellerId(ownPublicKey());
+  const sellerId = genSellerId(ownPublicKey(), secretKey(), kernel.self().bytes);
   const offerId = genOfferId(sellerId, itemId, price);
   const disclosedOfferId = disclose(offerId);
   assert(!offers.member(disclosedOfferId), "Offer already exists");
@@ -180,7 +187,7 @@ export circuit offerItem(
 export circuit setCarrierBid(offerId: Bytes<32>, fee: Uint<128>, carrierMeta: Opaque<'string'>): [] {
   const offer = checkOfferState(offerId, OfferState.New);
 
-  const carrierId = genCarrierId(ownPublicKey());
+  const carrierId = genCarrierId(ownPublicKey(), secretKey(), kernel.self().bytes);
   if (!carriers.member(carrierId)) {
     // TODO: request the carrier to be already registered
     carriers.insert(
@@ -220,7 +227,7 @@ export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>, coinInfo: 
   // deposit according to price and carrier fee
   receiveDeposit(coinInfo);
 
-  const buyerId = genBuyerId(ownPublicKey());
+  const buyerId = genBuyerId(ownPublicKey(), secretKey(), kernel.self().bytes);
   const purchaseDetails =
                 some<PurchaseDetails>(
                   PurchaseDetails { buyerId: buyerId,
@@ -380,20 +387,20 @@ export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
 
 // Check the caller is the buyer
 circuit isCallerTheBuyer(offer: Offer): Boolean {
-  const buyerId = genBuyerId(ownPublicKey());
+  const buyerId = genBuyerId(ownPublicKey(), secretKey(), kernel.self().bytes);
   return (offer.purchaseDetails.is_some && offer.purchaseDetails.value.buyerId == buyerId);
 }
 
 // Check the caller is the selected carrier
 circuit isCallerTheCarrier(offer: Offer): Boolean {
-  const carrierId = genCarrierId(ownPublicKey());
+  const carrierId = genCarrierId(ownPublicKey(), secretKey(), kernel.self().bytes);
   return (offer.purchaseDetails.is_some &&
           offer.purchaseDetails.value.selectedCarrierId == carrierId);
 }
 
 // Check the caller is the seller
 circuit isCallerTheSeller(offer: Offer): Boolean {
-  const sellerId = genSellerId(ownPublicKey());
+  const sellerId = genSellerId(ownPublicKey(), secretKey(), kernel.self().bytes);
   return (offer.seller == sellerId);
 }
 
@@ -439,22 +446,35 @@ circuit setOfferState(offer: Offer, newState: OfferState): [] {
   offers.insert(offer.id, updatedOffer);
 }
 
-// TODO: use OpenZeppelin tools.
 // Generates a seller ID from a public key.
-export circuit genSellerId(pk: ZswapCoinPublicKey): Bytes<32> {
-  return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "dmarket_seller_id:"), pk.bytes]));
+export circuit genSellerId(pk: ZswapCoinPublicKey, nonce: Bytes<32>, instanceSalt: Bytes<32>): Bytes<32> {
+  return (computeUserId(pk, nonce, instanceSalt, pad(32, "dmarket_seller_id:")));
 }
 
-// TODO: use OpenZeppelin tools.
 // Generates a buyer ID from a public key.
-export circuit genBuyerId(pk: ZswapCoinPublicKey): Bytes<32> {
-  return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "dmarket_buyer_id:"), pk.bytes]));
+export circuit genBuyerId(pk: ZswapCoinPublicKey, nonce: Bytes<32>, instanceSalt: Bytes<32>): Bytes<32> {
+  return (computeUserId(pk, nonce, instanceSalt, pad(32, "dmarket_buyer_id:")));
 }
 
-// TODO: use OpenZeppelin tools.
 // Generates a carrier ID from a public key.
-export circuit genCarrierId(pk: ZswapCoinPublicKey): Bytes<32> {
-  return disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "dmarket_carrier_id:"), pk.bytes]));
+export circuit genCarrierId(pk: ZswapCoinPublicKey, nonce: Bytes<32>, instanceSalt: Bytes<32>): Bytes<32> {
+  return (computeUserId(pk, nonce, instanceSalt, pad(32, "dmarket_carrier_id:")));
+}
+
+/*
+* Creates a shielded user ID, using the contract address to prevent duplicate commitments among other dMaket contracts.
+* @param {ZswapCoinPublicKey} pk - The public key of the identity being committed.
+* @param {Bytes<32>} nonce - A private nonce to scope the commitment, which is chosen and provided by teh user.
+* @returns {Bytes<32>} The computed user ID.
+*/
+export circuit computeUserId(
+                 pk: ZswapCoinPublicKey,
+                 nonce: Bytes<32>,
+                 instanceSalt: Bytes<32>,
+                 domain: Bytes<32>
+                 ): Bytes<32> {
+  return disclose(persistentHash<Vector<4, Bytes<32>>>(
+                    [pk.bytes, nonce, instanceSalt, pad(32, "dmarket_user_id:")]));
 }
 
 // Receive a deposit and keep it in this contract's teasury

@@ -7,6 +7,7 @@ import {
   CoinInfo,
   assert,
   encodeCoinPublicKey,
+  encodeContractAddress,
   TokenType,
   tokenType,
   ContractAddress,
@@ -38,13 +39,14 @@ export class DMarketSimulator {
   constructor(secretKey: Uint8Array, senderPk: string) {
     this.contractAddress = sampleContractAddress();
     this.contract = new Contract<DMarketPrivateState>(witnesses);
+    const initNonce = randomBytes(32);
     const {
       currentPrivateState,
       currentContractState,
       currentZswapLocalState,
     } = this.contract.initialState(
       constructorContext({ secretKey }, senderPk),
-      randomBytes(32),
+      initNonce,
     );
     this.circuitContext = {
       currentPrivateState,
@@ -242,21 +244,36 @@ export class DMarketSimulator {
     ).result;
   }
 
-  public genSellerId(pk: string): Uint8Array {
-    return this.contract.circuits.genSellerId(this.circuitContext, {
-      bytes: encodeCoinPublicKey(pk),
-    }).result;
+  public genSellerId(pk: string, nonce: Uint8Array): Uint8Array {
+    return this.contract.circuits.genSellerId(
+      this.circuitContext,
+      {
+        bytes: encodeCoinPublicKey(pk),
+      },
+      nonce,
+      encodeContractAddress(this.contractAddress),
+    ).result;
   }
 
-  public genCarrierId(pk: string): Uint8Array {
-    return this.contract.circuits.genCarrierId(this.circuitContext, {
-      bytes: encodeCoinPublicKey(pk),
-    }).result;
+  public genCarrierId(pk: string, nonce: Uint8Array): Uint8Array {
+    return this.contract.circuits.genCarrierId(
+      this.circuitContext,
+      {
+        bytes: encodeCoinPublicKey(pk),
+      },
+      nonce,
+      encodeContractAddress(this.contractAddress),
+    ).result;
   }
 
-  public genBuyerId(pk: string): Uint8Array {
-    return this.contract.circuits.genBuyerId(this.circuitContext, {
-      bytes: encodeCoinPublicKey(pk),
-    }).result;
+  public genBuyerId(pk: string, nonce: Uint8Array): Uint8Array {
+    return this.contract.circuits.genBuyerId(
+      this.circuitContext,
+      {
+        bytes: encodeCoinPublicKey(pk),
+      },
+      nonce,
+      encodeContractAddress(this.contractAddress),
+    ).result;
   }
 }
