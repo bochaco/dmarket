@@ -76,5 +76,8 @@ export type DMarketDerivedState = {
   readonly offers: Map<string, Offer>;
   readonly carrierBids: Map<string, Map<string, bigint>>;
   readonly coinDomainSeparator: DomainSeperator;
+  readonly userIdAsSeller: string;
+  readonly userIdAsCarrier: string;
+  readonly userIdAsBuyer: string;
   readonly treasuryBalance: bigint;
 };

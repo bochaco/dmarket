@@ -20,9 +20,15 @@
  */
 
 import contractModule, { Offer, Carrier, Seller } from '../../contract/src/managed/dmarket/contract/index.cjs';
-const { Contract, ledger } = contractModule;
+const { Contract, ledger, pureCircuits } = contractModule;
 
-import { tokenType, type ContractAddress } from '@midnight-ntwrk/compact-runtime';
+import {
+  tokenType,
+  type ContractAddress,
+  encodeContractAddress,
+  encodeCoinPublicKey,
+} from '@midnight-ntwrk/compact-runtime';
+import { MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 import { type Logger } from 'pino';
 import {
   type DMarketDerivedState,
@@ -139,12 +145,24 @@ export class DMarketAPI implements DeployedDMarketAPI {
           sellers.set(sellerId, seller);
         }
 
+        const pk = providers.walletProvider.coinPublicKey;
+        const zswapPk = { bytes: MidnightBech32m.parse(pk).data };
+        const nonce = privateState.secretKey;
+        const contractAddr = encodeContractAddress(this.deployedContractAddress);
+
+        const userIdAsSeller = pureCircuits.genSellerId(zswapPk, nonce, contractAddr);
+        const userIdAsCarrier = pureCircuits.genCarrierId(zswapPk, nonce, contractAddr);
+        const userIdAsBuyer = pureCircuits.genBuyerId(zswapPk, nonce, contractAddr);
+
         return {
           carriers: carriers,
           sellers: sellers,
           offers: offers,
           carrierBids: carrierBids,
           coinDomainSeparator: ledgerState.coinDomainSeparator,
+          userIdAsSeller: toHex(userIdAsSeller),
+          userIdAsCarrier: toHex(userIdAsCarrier),
+          userIdAsBuyer: toHex(userIdAsBuyer),
           treasuryBalance: ledgerState.treasury.value,
         };
       },
@@ -362,7 +380,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
   static async deploy(
     providers: DMarketProviders,
     initNonce: Uint8Array,
-    localSecretKey: Uint8Array,
+    password: Uint8Array,
     logger?: Logger,
   ): Promise<DMarketAPI> {
     logger?.info('deployContract');
@@ -370,7 +388,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
     const deployedDMarketContract = await deployContract<typeof dMarketContractInstance>(providers, {
       privateStateId: dMarketPrivateStateKey,
       contract: dMarketContractInstance,
-      initialPrivateState: await DMarketAPI.getPrivateState(providers, localSecretKey),
+      initialPrivateState: await DMarketAPI.getPrivateState(providers, password),
       args: [initNonce],
     });
 
@@ -395,7 +413,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
   static async join(
     providers: DMarketProviders,
     contractAddress: ContractAddress,
-    localSecretKey: Uint8Array,
+    password: Uint8Array,
     logger?: Logger,
   ): Promise<DMarketAPI> {
     logger?.info({
@@ -408,7 +426,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
       contractAddress,
       contract: dMarketContractInstance,
       privateStateId: dMarketPrivateStateKey,
-      initialPrivateState: await DMarketAPI.getPrivateState(providers, localSecretKey),
+      initialPrivateState: await DMarketAPI.getPrivateState(providers, password),
     });
 
     logger?.trace({
@@ -422,9 +440,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
 
   private static async getPrivateState(
     providers: DMarketProviders,
-    localSecretKey: Uint8Array,
+    password: Uint8Array,
   ): Promise<DMarketPrivateState> {
-    return createDMarketPrivateState(localSecretKey);
+    return createDMarketPrivateState(password);
   }
 }
 

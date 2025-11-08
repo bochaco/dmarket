@@ -308,7 +308,7 @@ const initializeProviders = async (
 ): Promise<DMarketProviders> => {
   const { wallet, uris } = await connectToWallet(logger);
   const walletState = await wallet.state();
-  const zkConfigPath = window.location.origin; // '../../../contract/src/managed/dmarket';
+  const zkConfigPath = window.location.origin;
 
   console.log(`Connecting to wallet with network ID: ${getLedgerNetworkId()}`);
 
