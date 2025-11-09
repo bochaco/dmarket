@@ -1,16 +1,22 @@
-import React, { useCallback, useState } from 'react';
-import { Offer } from '../types';
-import { FormProps } from './DMarket';
-import { handleErrorForRendering } from './WorkInProgressModal';
+import React, { useCallback, useState } from "react";
+import { Offer } from "../types";
+import { FormProps } from "./DMarket";
+import { handleErrorForRendering } from "./WorkInProgressModal";
 
 interface BidModalProps {
   offer: Offer;
+  userName: string;
   onClose: () => void;
   formProps: FormProps;
 }
 
-const BidModal: React.FC<BidModalProps> = ({ offer, onClose, formProps }) => {
-  const [fee, setFee] = useState('');
+const BidModal: React.FC<BidModalProps> = ({
+  offer,
+  userName,
+  onClose,
+  formProps,
+}) => {
+  const [fee, setFee] = useState("");
 
   const handlePlaceBid = useCallback(
     async (offerId: string, feeValue: bigint, carrierMeta: string) => {
@@ -18,14 +24,20 @@ const BidModal: React.FC<BidModalProps> = ({ offer, onClose, formProps }) => {
         try {
           formProps.setIsWorking({
             onClose: null,
-            status: 'in-progress',
-            task: 'Adding a fee bid to the offer',
+            status: "in-progress",
+            task: "Adding a fee bid to the offer",
             desc: `Item: ${offer.name}`,
           });
-          await formProps.dMarketApi.setCarrierBid(offerId, feeValue, carrierMeta);
+          await formProps.dMarketApi.setCarrierBid(
+            offerId,
+            feeValue,
+            carrierMeta,
+          );
           formProps.setIsWorking(null);
         } catch (error) {
-          formProps.setIsWorking(handleErrorForRendering(error, 'Adding a fee bid to the offer'));
+          formProps.setIsWorking(
+            handleErrorForRendering(error, "Adding a fee bid to the offer"),
+          );
         }
       }
     },
@@ -38,7 +50,7 @@ const BidModal: React.FC<BidModalProps> = ({ offer, onClose, formProps }) => {
     if (feeValue > 0) {
       onClose();
       // TODO: pre register the carrier
-      const carrierMeta = JSON.stringify({ name: 'John' });
+      const carrierMeta = JSON.stringify({ name: userName });
       await handlePlaceBid(offer.id, feeValue, carrierMeta);
     }
   };
@@ -49,8 +61,12 @@ const BidModal: React.FC<BidModalProps> = ({ offer, onClose, formProps }) => {
         <div className="p-8">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-brand-text-primary">Place Your Bid</h2>
-              <p className="text-sm text-brand-text-secondary">For "{offer.name}"</p>
+              <h2 className="text-2xl font-bold text-brand-text-primary">
+                Place Your Bid
+              </h2>
+              <p className="text-sm text-brand-text-secondary">
+                For "{offer.name}"
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -63,7 +79,10 @@ const BidModal: React.FC<BidModalProps> = ({ offer, onClose, formProps }) => {
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 mb-6">
               <div>
-                <label htmlFor="bid-fee" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                <label
+                  htmlFor="bid-fee"
+                  className="block text-sm font-medium text-brand-text-secondary mb-2"
+                >
                   Delivery Fee (DMRK)
                 </label>
                 <input

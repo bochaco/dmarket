@@ -60,6 +60,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
   const [isWorking, setIsWorking] = useState<WorkInProgressInfo | null>(null);
 
   const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [userName, setUserName] = useState("");
   const [contractAddress, setContractAddress] = useState("");
 
   const [users, setUsers] = useState<User[]>([]);
@@ -104,6 +105,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       console.log(
         `dMarket connection failed: ${JSON.stringify(dMarketDeployment.error)}`,
       );
+      setUserName("");
       setContractAddress("");
       setIsWorking({
         ...handleErrorForRendering(
@@ -147,6 +149,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
   const handleSetupComplete = useCallback(
     async (data: SetupData) => {
       if (dMarketApiProvider) {
+        setUserName(data.username);
         const passwordEncoder = new TextEncoder();
         const accountPassword = passwordEncoder.encode(data.password);
         if (data.contractAddress) {
@@ -186,6 +189,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       dMarketApiProvider.reset();
       setUsers([]);
       setOffers([]);
+      setUserName("");
       setContractAddress("");
       setIsWorking(null);
       setIsSetupComplete(false);
@@ -268,8 +272,11 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
           <div className="lg:col-span-8 xl:col-span-9">
             {currentRole === UserRole.Seller && (
               <CreateOfferForm
-                dMarketApi={dMarketApi}
-                setIsWorking={setIsWorking}
+                userName={userName}
+                formProps={{
+                  dMarketApi,
+                  setIsWorking,
+                }}
               />
             )}
 
@@ -390,6 +397,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       {biddingOffer && (
         <BidModal
           offer={biddingOffer}
+          userName={userName}
           onClose={() => setBiddingOffer(null)}
           formProps={{ dMarketApi, setIsWorking }}
         />
