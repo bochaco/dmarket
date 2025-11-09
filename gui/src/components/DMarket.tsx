@@ -207,14 +207,13 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
     }
     switch (currentRole) {
       case UserRole.Carrier:
-        return (
-          dMarketState?.userIdAsSeller !== offer.seller.id &&
-          dMarketState?.userIdAsBuyer !== offer.purchaseDetails?.buyer.id
-        );
+        return dMarketState?.userIdAsSeller !== offer.seller.id;
       case UserRole.Buyer:
         return (
           dMarketState?.userIdAsSeller !== offer.seller.id &&
-          dMarketState?.userIdAsCarrier !== offer.purchaseDetails?.carrier.id
+          !offer.bids.some(
+            (b) => b.carrier.id === dMarketState?.userIdAsCarrier,
+          )
         );
       case UserRole.Seller:
         return dMarketState?.userIdAsSeller === offer.seller.id;
@@ -298,6 +297,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
                   key={offer.id}
                   offer={offer}
                   currentRole={currentRole}
+                  userIdAsCarrier={dMarketState?.userIdAsCarrier}
                   onViewDetails={setViewingOffer}
                   onPlaceBid={setBiddingOffer}
                 />
@@ -409,6 +409,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
         <BidModal
           offer={biddingOffer}
           userName={userName}
+          userIdAsCarrier={dMarketState?.userIdAsCarrier}
           onClose={() => setBiddingOffer(null)}
           formProps={{ dMarketApi, setIsWorking }}
         />

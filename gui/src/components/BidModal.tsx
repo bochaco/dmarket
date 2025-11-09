@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { Offer } from "../types";
 import { FormProps } from "./DMarket";
 import { handleErrorForRendering } from "./WorkInProgressModal";
@@ -6,6 +6,7 @@ import { handleErrorForRendering } from "./WorkInProgressModal";
 interface BidModalProps {
   offer: Offer;
   userName: string;
+  userIdAsCarrier: string | undefined;
   onClose: () => void;
   formProps: FormProps;
 }
@@ -13,10 +14,18 @@ interface BidModalProps {
 const BidModal: React.FC<BidModalProps> = ({
   offer,
   userName,
+  userIdAsCarrier,
   onClose,
   formProps,
 }) => {
   const [fee, setFee] = useState("");
+
+  useEffect(() => {
+    const bid = offer.bids.find((b) => b.carrier.id === userIdAsCarrier);
+    if (bid) {
+      setFee(bid.fee.toString());
+    }
+  }, [userIdAsCarrier]);
 
   const handlePlaceBid = useCallback(
     async (offerId: string, feeValue: bigint, carrierMeta: string) => {

@@ -5,6 +5,7 @@ import ThumbnailImage from "./ThumbnailImage";
 interface OfferCardProps {
   offer: Offer;
   currentRole: UserRole;
+  userIdAsCarrier: string | undefined;
   onViewDetails: (offer: Offer) => void;
   onPlaceBid: (offer: Offer) => void;
 }
@@ -12,12 +13,15 @@ interface OfferCardProps {
 const OfferCard: React.FC<OfferCardProps> = ({
   offer,
   currentRole,
+  userIdAsCarrier,
   onViewDetails,
   onPlaceBid,
 }) => {
   // A simple check to see if the current user (as carrier) has already bid
-  //const hasBid = currentRole === UserRole.Carrier && offer.bids.some((b) => b.carrier.id === '3'); // Mocked user ID for Charlie the Carrier
-  const hasBid = false;
+  const hasBid =
+    currentRole === UserRole.Carrier && userIdAsCarrier
+      ? offer.bids.some((b) => b.carrier.id === userIdAsCarrier)
+      : false;
 
   const renderButton = () => {
     switch (currentRole) {
