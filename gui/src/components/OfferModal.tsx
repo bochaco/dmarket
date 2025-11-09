@@ -18,6 +18,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
 }) => {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [selectedBid, setSelectedBid] = useState<CarrierBid | null>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState<string>("");
 
   React.useEffect(() => {
     if (offer?.imageUrls?.length) {
@@ -34,6 +35,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
       offerId: string,
       bid: CarrierBid,
       totalAmount: bigint,
+      deliveryAddress: string,
     ) => {
       if (formProps.dMarketApi) {
         try {
@@ -47,6 +49,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
             offerId,
             bid.carrier.id,
             totalAmount,
+            deliveryAddress,
           );
           formProps.setIsWorking(null);
         } catch (error) {
@@ -62,7 +65,13 @@ const OfferModal: React.FC<OfferModalProps> = ({
   const handleBuy = () => {
     if (selectedBid) {
       onClose();
-      buyOfferWithCarrier(offer.name, offer.id, selectedBid, totalPrice);
+      buyOfferWithCarrier(
+        offer.name,
+        offer.id,
+        selectedBid,
+        totalPrice,
+        deliveryAddress,
+      );
     }
   };
 
@@ -193,6 +202,24 @@ const OfferModal: React.FC<OfferModalProps> = ({
           </div>
 
           <div className="mt-auto pt-6 border-t border-slate-700">
+            <div className="mb-4">
+              <label
+                htmlFor="delivery-address"
+                className="block text-sm font-medium text-brand-text-secondary mb-2"
+              >
+                Delivery Address
+              </label>
+              <textarea
+                id="delivery-address"
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                className="w-full bg-brand-background border border-slate-700 rounded-lg px-4 py-2 text-brand-text-primary placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary transition"
+                rows={3}
+                placeholder="Enter your full delivery address"
+                required
+              />
+            </div>
+
             <div className="flex justify-between items-center mb-4">
               <span className="text-md text-brand-text-secondary">
                 Item Price
@@ -219,7 +246,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
             </div>
             <button
               onClick={handleBuy}
-              disabled={!selectedBid}
+              disabled={!selectedBid || !deliveryAddress.trim()}
               className="w-full bg-gradient-to-r from-brand-accent to-brand-primary text-white font-bold py-3 px-6 rounded-lg hover:from-lime-400 hover:to-cyan-400 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Buy with Selected Carrier

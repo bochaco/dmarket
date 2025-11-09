@@ -1,20 +1,20 @@
 // types.ts
 export enum UserRole {
-  Buyer = 'Buyer',
-  Seller = 'Seller',
-  Carrier = 'Carrier',
+  Buyer = "Buyer",
+  Seller = "Seller",
+  Carrier = "Carrier",
 }
 
 export enum OfferStatus {
-  Available = 'Available',
-  AwaitingCarrierAcceptance = 'Awaiting Carrier Acceptance',
-  AwaitingPickupConfirmation = 'Awaiting Pickup Confirmation',
-  InTransit = 'In Transit',
-  Delivered = 'Delivered',
-  Completed = 'Completed',
-  DisputeOpened = 'Dispute Opened',
-  Cancelled = 'Cancelled',
-  Refunded = 'Refunded',
+  Available = "Available",
+  AwaitingCarrierAcceptance = "Awaiting Carrier Acceptance",
+  AwaitingPickupConfirmation = "Awaiting Pickup Confirmation",
+  InTransit = "In Transit",
+  Delivered = "Delivered",
+  Completed = "Completed",
+  DisputeOpened = "Dispute Opened",
+  Cancelled = "Cancelled",
+  Refunded = "Refunded",
   CarrierDepositConfiscated = "Carrier's Deposit Confiscated",
 }
 
@@ -47,6 +47,7 @@ export interface Offer {
     buyer: User;
     carrier: User;
     deliveryFee: bigint;
+    deliveryAddress: string;
   } | null;
   ratings: {
     buyer: {
@@ -64,6 +65,10 @@ export interface Offer {
   };
 }
 
-export type DisputeReasonType = 'Defective' | 'Regreted' | 'Wrong size' | 'Other';
+export type DisputeReasonType =
+  | "Defective"
+  | "Regreted"
+  | "Wrong size"
+  | "Other";
 
-export type DisputeResolutionType = 'Refund' | 'Reject' | 'Confiscate';
+export type DisputeResolutionType = "Refund" | "Reject" | "Confiscate";

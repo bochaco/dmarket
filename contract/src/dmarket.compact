@@ -14,7 +14,6 @@ TODO:
 - Allow carriers to provide details of different delivery options, with different destination areas/distances, as part of the bidding process.
 - Allow to store in the ledger the type of dispute and type of resolution.
 - Deposits management for dispute resolutions.
-- Encrypt delivery address to the selected carrier's PK
 ****/
 
 // Information kept for registered carriers
@@ -23,6 +22,12 @@ export struct Carrier {
   id: Bytes<32>,
   // Wallet of the carrier where fees payment shall be sent.
   wallet: ZswapCoinPublicKey,
+  // Public key the buyer will encrypt the delivery address to.
+  // Only the selected carrier will be able to see (by decrypting) the
+  // delivery address when accepting the order.
+  // The encoding and format of the public key is defined by
+  // the dApp according to the encryption used.
+  encryptionPk: Opaque<'string'>,
   // Optional metadata, format and content to be interpreted by the dApp.
   meta: Opaque<'string'>
 }
@@ -84,9 +89,14 @@ export enum OfferState {
 
 // Information defined when an offer is purchased, including selected carrier and agreed fee
 export struct PurchaseDetails {
+  // ID of the buyer
   buyerId: Bytes<32>,
+  // Selected carrier for delivery
   selectedCarrierId: Bytes<32>,
-  carrierFee: Uint<128>
+  // Delivery fee as offered by the selected carrier's bid
+  carrierFee: Uint<128>,
+  // Delivery address encrypted to the selected carriers's encryption PK
+  deliveryAddress: Opaque<'string'>
 }
 
 // Published offer
@@ -123,10 +133,16 @@ export ledger carrierBids: Map<Bytes<32>, Map<Bytes<32>, Uint<128>>>;
 /**
  * @witness secretKey
  * @description A private per-user nonce used in deriving the shielded user identifier.
- * Combined with the user's public key to produce an obfuscated,
- * unlinkable identity commitment.
+ * Combined with the user's public key to produce an obfuscated, unlinkable identity commitment.
  */
 witness secretKey(): Bytes<32>;
+
+/**
+ * @witness encrypt
+ * @description Encryption function used to encrypt the delivery address to
+ * the selected carrier's encryption key.
+ */
+witness encrypt(data: Opaque<'string'>, encryptionPk: Opaque<'string'>): Opaque<'string'>;
 
 // Construction circuit, where coin domain separator and color are defined.
 // An initial nonce is provided which is then to generate new nonces for coin minting.
@@ -183,14 +199,23 @@ export circuit offerItem(
 // Adds a new carrier fee bid to an already published offer.
 // Buyers will then be able to select a carrier among the bidders when buying the item.
 // OfferState: New => New
-export circuit setCarrierBid(offerId: Bytes<32>, fee: Uint<128>, carrierMeta: Opaque<'string'>): [] {
+export circuit setCarrierBid(
+                 offerId: Bytes<32>,
+                 fee: Uint<128>,
+                 encryptionPk: Opaque<'string'>,
+                 carrierMeta: Opaque<'string'>
+                 ): [] {
   const offer = checkOfferState(offerId, OfferState.New);
 
   const carrierId = genCarrierId(ownPublicKey(), secretKey(), kernel.self().bytes);
   if (!carriers.member(carrierId)) {
     // TODO: request the carrier to be already registered
     carriers.insert(
-      carrierId, Carrier { id: carrierId, wallet: ownPublicKey(), meta: disclose(carrierMeta) });
+      carrierId,
+      Carrier { id: carrierId,
+                wallet: ownPublicKey(),
+                encryptionPk: disclose(encryptionPk),
+                meta: disclose(carrierMeta) });
   }
 
   if (!carrierBids.member(offer.id)) {
@@ -214,12 +239,19 @@ export circuit setOfferEta(offerId: Bytes<32>, timestamp: Uint<128>): [] {
 // selected among the current fee bidders. Only the selected carrier can
 // then pick up the item for delivery.
 // OfferState: New => Purchased
-export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>, coinInfo: CoinInfo): [] {
+export circuit purchaseItem(
+                 offerId: Bytes<32>,
+                 carrierId: Bytes<32>,
+                 coinInfo: CoinInfo,
+                 deliveryAddress: Opaque<'string'>
+                 ): [] {
   const offer = checkOfferState(offerId, OfferState.New);
 
   assert(carrierBids.member(offer.id), "No carriers found for the offer");
   const disclosedCarrierId = disclose(carrierId);
   assert(carrierBids.lookup(offer.id).member(disclosedCarrierId), "Carrier not found among bidders");
+  assert(carriers.member(disclosedCarrierId), "Carrier is not registered");
+  const encryptionPk = carriers.lookup(disclosedCarrierId).encryptionPk;
   const fee = carrierBids.lookup(offer.id).lookup(disclosedCarrierId);
   assert(coinInfo.value == offer.price + fee, "Deposit amount must be equal to the item price plus the carrier fee");
 
@@ -231,7 +263,8 @@ export circuit purchaseItem(offerId: Bytes<32>, carrierId: Bytes<32>, coinInfo: 
                 some<PurchaseDetails>(
                   PurchaseDetails { buyerId: buyerId,
                                     selectedCarrierId: disclosedCarrierId,
-                                    carrierFee: fee });
+                                    carrierFee: fee,
+                                    deliveryAddress: disclose(encrypt(deliveryAddress, encryptionPk)) });
   const updatedOffer =
                 Offer { ...offer, purchaseDetails: purchaseDetails, state: OfferState.Purchased };
   offers.insert(offer.id, updatedOffer);

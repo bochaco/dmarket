@@ -33,6 +33,7 @@ import { useDeployedDMarketContext } from "../hooks";
 import { type DMarketDeployment } from "../contexts";
 import { type Observable } from "rxjs";
 import {
+  DMarketAPI,
   type DMarketDerivedState,
   type DeployedDMarketAPI,
 } from "../../../api/src/index";
@@ -140,11 +141,11 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       let updatedUsers = carriersAsUsers(dMarketState).concat(
         sellersAsUsers(dMarketState),
       );
-      let offers = updatedOffers(dMarketState, updatedUsers);
+      let offers = updatedOffers(dMarketState, dMarketApi, updatedUsers);
       setUsers(updatedUsers);
       setOffers(offers);
     }
-  }, [dMarketState]);
+  }, [dMarketState, dMarketApi]);
 
   const handleSetupComplete = useCallback(
     async (data: SetupData) => {
@@ -201,13 +202,23 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
   };
 
   const offersAvailable = offers.filter((offer) => {
-    if (offer.status !== OfferStatus.Available) {
+    if (offer.status !== OfferStatus.Available || !dMarketState) {
       return false;
     }
-    if (currentRole === UserRole.Carrier || currentRole === UserRole.Buyer) {
-      return true;
+    switch (currentRole) {
+      case UserRole.Carrier:
+        return (
+          dMarketState?.userIdAsSeller !== offer.seller.id &&
+          dMarketState?.userIdAsBuyer !== offer.purchaseDetails?.buyer.id
+        );
+      case UserRole.Buyer:
+        return (
+          dMarketState?.userIdAsSeller !== offer.seller.id &&
+          dMarketState?.userIdAsCarrier !== offer.purchaseDetails?.carrier.id
+        );
+      case UserRole.Seller:
+        return dMarketState?.userIdAsSeller === offer.seller.id;
     }
-    return dMarketState && dMarketState?.userIdAsSeller === offer.seller.id;
   });
 
   const allVisibleOrders = offers.filter((offer) => {
@@ -507,6 +518,7 @@ const sellersAsUsers = (dMarketState: DMarketDerivedState): User[] => {
 
 const updatedOffers = (
   dMarketState: DMarketDerivedState,
+  dMarketApi: DeployedDMarketAPI | undefined,
   updatedUsers: User[],
 ): Offer[] => {
   let updatedOffers = [];
@@ -564,9 +576,21 @@ const updatedOffers = (
             updatedUsers.push(buyer);
           }
 
+          let deliveryAddress = "Unknown";
+          if (dMarketApi) {
+            try {
+              deliveryAddress = dMarketApi.decrypt(
+                offer.purchaseDetails.value.deliveryAddress,
+              );
+            } catch (error) {
+              deliveryAddress = "Shielded";
+            }
+          }
+
           // set purchase details for this offer
           purchaseDetails = {
             deliveryFee: offer.purchaseDetails.value.carrierFee,
+            deliveryAddress,
             carrier,
             buyer,
           };

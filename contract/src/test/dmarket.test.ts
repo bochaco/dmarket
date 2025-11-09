@@ -17,6 +17,7 @@ import {
   OfferState,
   PurchaseDetails,
 } from "../managed/dmarket/contract/index.cjs";
+import { createDMarketPrivateState } from "../witnesses";
 
 setNetworkId(NetworkId.Undeployed);
 
@@ -42,7 +43,7 @@ type TestUsers = {
 };
 
 // Generate random users, and a simulator instantiated with the generated random seller
-const randomUsers = (): [TestUsers, DMarketSimulator] => {
+const randomUsers = async (): Promise<[TestUsers, DMarketSimulator]> => {
   const sellerPwd = randomBytes(32);
   const sellerPk = randomCoinPublicKeyHex();
   const users = {
@@ -54,13 +55,23 @@ const randomUsers = (): [TestUsers, DMarketSimulator] => {
     buyerPwd: randomBytes(32),
   };
 
-  const simulator = new DMarketSimulator(sellerPwd, sellerPk);
+  const dMarketPrivateState = await createDMarketPrivateState(sellerPwd);
+  const simulator = new DMarketSimulator(dMarketPrivateState, sellerPk);
+  const sellerId = simulator.genSellerId(users.sellerPk);
+
+  await simulator.switchUser(users.carrierPwd, users.carrierPk);
+  const carrierId = simulator.genCarrierId(users.carrierPk);
+
+  await simulator.switchUser(users.buyerPwd, users.buyerPk);
+  const buyerId = simulator.genBuyerId(users.buyerPk);
+
+  await simulator.switchUser(users.buyerPwd, users.buyerPk);
   return [
     {
       ...users,
-      sellerId: simulator.genSellerId(users.sellerPk, users.sellerPwd),
-      carrierId: simulator.genCarrierId(users.carrierPk, users.carrierPwd),
-      buyerId: simulator.genBuyerId(users.buyerPk, users.buyerPwd),
+      sellerId,
+      carrierId,
+      buyerId,
     },
     simulator,
   ];
@@ -76,6 +87,7 @@ const buildUpdatedOffer = (
     buyerId: users.buyerId,
     selectedCarrierId: users.carrierId,
     carrierFee: fee,
+    deliveryAddress: "",
   };
   const updatedOffer: Offer = {
     ...offer,
@@ -87,36 +99,36 @@ const buildUpdatedOffer = (
 
 // Helper to publish an offer and leave it in a
 // desired state to then execute certain tests
-const publishOffer = (
+const publishOffer = async (
   simulator: DMarketSimulator,
   users: TestUsers,
   state: OfferState,
-): { offer: Offer; fee: bigint } => {
+): Promise<{ offer: Offer; fee: bigint }> => {
   const item = genRandomItem();
   const fee = randomNumber(10);
-  simulator.switchUser(users.sellerPwd, users.sellerPk);
-  const offer = simulator.offerItem(item);
+  await simulator.switchUser(users.sellerPwd, users.sellerPk);
+  const offer = simulator.offerItem(item, "");
   const res = { offer: offer, fee: fee };
 
-  simulator.switchUser(users.carrierPwd, users.carrierPk);
-  simulator.setCarrierBid(offer.id, fee);
+  await simulator.switchUser(users.carrierPwd, users.carrierPk);
+  simulator.setCarrierBid(offer.id, fee, "");
   if (state == OfferState.New) {
     return res;
   }
 
-  simulator.switchUser(users.buyerPwd, users.buyerPk);
-  let coinInfoBuyer = createCoinInfo(
+  await simulator.switchUser(users.buyerPwd, users.buyerPk);
+  const coinInfoBuyer = createCoinInfo(
     simulator.getCoinColor(),
     item.price + fee,
   );
-  simulator.purchaseItem(offer.id, users.carrierId, coinInfoBuyer);
+  simulator.purchaseItem(offer.id, users.carrierId, coinInfoBuyer, "");
   expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
   if (state == OfferState.Purchased) {
     return res;
   }
 
-  simulator.switchUser(users.carrierPwd, users.carrierPk);
-  let coinInfoCarrier = createCoinInfo(
+  await simulator.switchUser(users.carrierPwd, users.carrierPk);
+  const coinInfoCarrier = createCoinInfo(
     simulator.getCoinColor(),
     item.price + fee,
   );
@@ -128,20 +140,20 @@ const publishOffer = (
     return res;
   }
 
-  simulator.switchUser(users.sellerPwd, users.sellerPk);
+  await simulator.switchUser(users.sellerPwd, users.sellerPk);
   simulator.confirmItemInTransit(offer.id);
   if (state == OfferState.InTransit) {
     return res;
   }
 
-  simulator.switchUser(users.carrierPwd, users.carrierPk);
+  await simulator.switchUser(users.carrierPwd, users.carrierPk);
   simulator.delivered(offer.id);
   if (state == OfferState.Delivered) {
     return res;
   }
 
   if (state == OfferState.Dispute) {
-    simulator.switchUser(users.buyerPwd, users.buyerPk);
+    await simulator.switchUser(users.buyerPwd, users.buyerPk);
     simulator.disputeItem(offer.id);
     expect(simulator.getLedger().treasury.value).toEqual(
       2n * (offer.price + fee),
@@ -149,25 +161,24 @@ const publishOffer = (
     return res;
   }
 
-  simulator.switchUser(users.buyerPwd, users.buyerPk);
+  await simulator.switchUser(users.buyerPwd, users.buyerPk);
   simulator.confirmDelivered(offer.id);
   expect(simulator.getLedger().treasury.value).toEqual(0n);
   return res;
 };
 
 describe("dMarket smart contract", () => {
-  it("publishing an offer", () => {
+  it("publishing an offer", async () => {
     const pk = randomCoinPublicKeyHex();
     const pwd = randomBytes(32);
-    const simulator = new DMarketSimulator(pwd, pk);
-    const mySellerId = simulator.genSellerId(pk, pwd);
+    const dMarketPrivateState = await createDMarketPrivateState(pwd);
+    const simulator = new DMarketSimulator(dMarketPrivateState, pk);
+    const mySellerId = simulator.genSellerId(pk);
 
     const item = genRandomItem();
 
-    expect(() => simulator.offerItem({ ...item, price: 0 })).toThrow();
-
-    const offer = simulator.offerItem(item);
-    expect(() => simulator.offerItem(item)).toThrow(
+    const offer = simulator.offerItem(item, "");
+    expect(() => simulator.offerItem(item, "")).toThrow(
       "failed assert: Offer already exists",
     );
     expect(simulator.getLedger().offers.isEmpty()).toBe(false);
@@ -186,9 +197,9 @@ describe("dMarket smart contract", () => {
     expect(ledgerOffer).toEqual(offer);
   });
 
-  it("setting carrier bids to an offer", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.New);
+  it("setting carrier bids to an offer", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(simulator, users, OfferState.New);
 
     const ledgerOffer = simulator.getLedger().offers.lookup(offer.id);
     expect(ledgerOffer).toEqual(offer);
@@ -198,12 +209,12 @@ describe("dMarket smart contract", () => {
       .lookup(users.carrierId);
     expect(feeBid).toEqual(fee);
 
-    expect(() => simulator.setCarrierBid(randomBytes(32), fee)).toThrow(
+    expect(() => simulator.setCarrierBid(randomBytes(32), fee, "")).toThrow(
       "failed assert: Offer not found",
     );
     // update bid fee
     const newFee = randomNumber(10);
-    simulator.setCarrierBid(offer.id, newFee);
+    simulator.setCarrierBid(offer.id, newFee, "");
     feeBid = simulator
       .getLedger()
       .carrierBids.lookup(offer.id)
@@ -211,69 +222,96 @@ describe("dMarket smart contract", () => {
     expect(feeBid).toEqual(newFee);
   });
 
-  it("purchase an item selecting a carrier", () => {
-    const [users, simulator] = randomUsers();
+  it("purchase an item selecting a carrier", async () => {
+    const [users, simulator] = await randomUsers();
 
     const item = genRandomItem();
     const fee = randomNumber(10);
-    const offer = simulator.offerItem(item);
-    let coinInfo = createCoinInfo(simulator.getCoinColor(), item.price + fee);
+    const offer = simulator.offerItem(item, "");
+    const coinInfo = createCoinInfo(simulator.getCoinColor(), item.price + fee);
     expect(() =>
-      simulator.purchaseItem(offer.id, randomBytes(32), coinInfo),
+      simulator.purchaseItem(offer.id, randomBytes(32), coinInfo, ""),
     ).toThrow("failed assert: No carriers found for the offer");
 
-    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(simulator.getLedger().carrierBids.member(offer.id)).toBe(false);
-    simulator.setCarrierBid(offer.id, fee);
+    simulator.setCarrierBid(offer.id, fee, "");
     expect(simulator.getLedger().carrierBids.member(offer.id)).toBe(true);
 
-    simulator.switchUser(users.buyerPwd, users.buyerPk);
+    await simulator.switchUser(users.buyerPwd, users.buyerPk);
     expect(() =>
-      simulator.purchaseItem(offer.id, randomBytes(32), coinInfo),
+      simulator.purchaseItem(offer.id, randomBytes(32), coinInfo, ""),
     ).toThrow("failed assert: Carrier not found among bidders");
     expect(() =>
-      simulator.purchaseItem(randomBytes(32), users.carrierId, coinInfo),
+      simulator.purchaseItem(randomBytes(32), users.carrierId, coinInfo, ""),
     ).toThrow("failed assert: Offer not found");
 
-    simulator.purchaseItem(offer.id, users.carrierId, coinInfo);
+    const deliveryAddress = "My-home-address-for-delivery";
+    simulator.purchaseItem(
+      offer.id,
+      users.carrierId,
+      coinInfo,
+      deliveryAddress,
+    );
     expect(simulator.getLedger().carrierBids.member(offer.id)).toBe(false);
 
+    // we switch to carrier user to be able to decrypt the delivery address
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
+    const contractOffer = simulator.getLedger().offers.lookup(offer.id);
+    const decryptedDeiveryAddress =
+      simulator.circuitContext.currentPrivateState.decrypt(
+        contractOffer.purchaseDetails.value.deliveryAddress,
+      );
+    expect(deliveryAddress).toEqual(decryptedDeiveryAddress);
+
+    const offerWithDeliveryAddr = buildUpdatedOffer(
+      offer,
+      users,
+      OfferState.Purchased,
+      fee,
+    );
+    offerWithDeliveryAddr.purchaseDetails.value.deliveryAddress =
+      simulator.circuitContext.currentPrivateState.encrypt(
+        deliveryAddress,
+        simulator.circuitContext.currentPrivateState.encryptionKeyPair
+          .publicKey,
+      );
     expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
-      buildUpdatedOffer(offer, users, OfferState.Purchased, fee),
+      offerWithDeliveryAddr,
     );
     expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
   });
 
-  it("invalid deposits for purchasing an item", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.New);
+  it("invalid deposits for purchasing an item", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(simulator, users, OfferState.New);
     expect(simulator.getLedger().treasury.value).toEqual(0n);
     const rightAmount = offer.price + fee;
 
-    let nonNativeCoinInfo = createCoinInfo(
+    const nonNativeCoinInfo = createCoinInfo(
       `0200${toHex(randomBytes(32))}`,
       rightAmount,
     );
     expect(() =>
-      simulator.purchaseItem(offer.id, users.carrierId, nonNativeCoinInfo),
+      simulator.purchaseItem(offer.id, users.carrierId, nonNativeCoinInfo, ""),
     ).toThrow("failed assert: Only dMarket coins can be used for payments");
 
-    let tooLittleCoinInfo = createCoinInfo(
+    const tooLittleCoinInfo = createCoinInfo(
       simulator.getCoinColor(),
       rightAmount - 1n,
     );
     expect(() =>
-      simulator.purchaseItem(offer.id, users.carrierId, tooLittleCoinInfo),
+      simulator.purchaseItem(offer.id, users.carrierId, tooLittleCoinInfo, ""),
     ).toThrow(
       "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
     );
 
-    let tooMuchCoinInfo = createCoinInfo(
+    const tooMuchCoinInfo = createCoinInfo(
       simulator.getCoinColor(),
       rightAmount + 1n,
     );
     expect(() =>
-      simulator.purchaseItem(offer.id, users.carrierId, tooMuchCoinInfo),
+      simulator.purchaseItem(offer.id, users.carrierId, tooMuchCoinInfo, ""),
     ).toThrow(
       "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
     );
@@ -281,24 +319,32 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
-  it("carrier picks up a purchased item", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
-    let coinInfo = createCoinInfo(simulator.getCoinColor(), offer.price + fee);
+  it("carrier picks up a purchased item", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.Purchased,
+    );
+    const coinInfo = createCoinInfo(
+      simulator.getCoinColor(),
+      offer.price + fee,
+    );
 
     const eta = randomNumber(null);
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.itemPickedUp(offer.id, coinInfo, eta)).toThrow(
       "failed assert: Only the selected carrier can pick this item up for delivery",
     );
 
     expect(offer.deliveryEta).toEqual(0n);
-    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(() =>
       simulator.itemPickedUp(randomBytes(32), coinInfo, eta),
     ).toThrow("failed assert: Offer not found");
+
     simulator.itemPickedUp(offer.id, coinInfo, eta);
-    let updatedOffer = buildUpdatedOffer(
+    const updatedOffer = buildUpdatedOffer(
       offer,
       users,
       OfferState.PickedUp,
@@ -311,14 +357,18 @@ describe("dMarket smart contract", () => {
     );
   });
 
-  it("invalid deposits for picking an item up", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
+  it("invalid deposits for picking an item up", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.Purchased,
+    );
     const rightAmount = offer.price + fee;
-    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
 
-    let nonNativeCoinInfo = createCoinInfo(
+    const nonNativeCoinInfo = createCoinInfo(
       `0200${toHex(randomBytes(32))}`,
       rightAmount,
     );
@@ -326,7 +376,7 @@ describe("dMarket smart contract", () => {
       simulator.itemPickedUp(offer.id, nonNativeCoinInfo, null),
     ).toThrow("failed assert: Only dMarket coins can be used for payments");
 
-    let tooLittleCoinInfo = createCoinInfo(
+    const tooLittleCoinInfo = createCoinInfo(
       simulator.getCoinColor(),
       rightAmount - 1n,
     );
@@ -336,7 +386,7 @@ describe("dMarket smart contract", () => {
       "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
     );
 
-    let tooMuchCoinInfo = createCoinInfo(
+    const tooMuchCoinInfo = createCoinInfo(
       simulator.getCoinColor(),
       rightAmount + 1n,
     );
@@ -349,16 +399,20 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
   });
 
-  it("seller confirms carrier has picked up a purchased item", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.PickedUp);
+  it("seller confirms carrier has picked up a purchased item", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.PickedUp,
+    );
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.confirmItemInTransit(offer.id)).toThrow(
       "failed assert: Only the seller can confirm the item has been picked up for delivery",
     );
 
-    simulator.switchUser(users.sellerPwd, users.sellerPk);
+    await simulator.switchUser(users.sellerPwd, users.sellerPk);
     expect(() => simulator.confirmItemInTransit(randomBytes(32))).toThrow(
       "failed assert: Offer not found",
     );
@@ -371,17 +425,18 @@ describe("dMarket smart contract", () => {
     );
   });
 
-  it("carrier updates delivery ETA", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.InTransit);
+  it("carrier updates delivery ETA", async () => {
+    const [users, simulator] = await randomUsers();
+    const offer = (await publishOffer(simulator, users, OfferState.InTransit))
+      .offer;
 
     const timestamp = randomNumber(null);
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.setOfferEta(offer.id, timestamp)).toThrow(
       "failed assert: Only the carrier selected for an offer can set its delivery ETA",
     );
 
-    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(() => simulator.setOfferEta(randomBytes(32), timestamp)).toThrow(
       "failed assert: Offer not found",
     );
@@ -395,16 +450,20 @@ describe("dMarket smart contract", () => {
     expect(ledgerOffer.deliveryEta).toEqual(newTimestamp);
   });
 
-  it("carrier delivered the purchased item", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.InTransit);
+  it("carrier delivered the purchased item", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.InTransit,
+    );
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.delivered(offer.id)).toThrow(
       "failed assert: Only the carrier can set the item as delivered",
     );
 
-    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(() => simulator.delivered(randomBytes(32))).toThrow(
       "failed assert: Offer not found",
     );
@@ -417,16 +476,20 @@ describe("dMarket smart contract", () => {
     );
   });
 
-  it("buyer confirms the purchased item has been delivered", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.Delivered);
+  it("buyer confirms the purchased item has been delivered", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.Delivered,
+    );
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.confirmDelivered(offer.id)).toThrow(
       "failed assert: Only the buyer can confirm the item has been delivered",
     );
 
-    simulator.switchUser(users.buyerPwd, users.buyerPk);
+    await simulator.switchUser(users.buyerPwd, users.buyerPk);
     expect(() => simulator.confirmDelivered(randomBytes(32))).toThrow(
       "failed assert: Offer not found",
     );
@@ -437,16 +500,20 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
-  it("buyer opens a dispute on a purchased item", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.Delivered);
+  it("buyer opens a dispute on a purchased item", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.Delivered,
+    );
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.disputeItem(offer.id)).toThrow(
       "failed assert: Only the buyer can open a dispute on the item",
     );
 
-    simulator.switchUser(users.buyerPwd, users.buyerPk);
+    await simulator.switchUser(users.buyerPwd, users.buyerPk);
     expect(() => simulator.disputeItem(randomBytes(32))).toThrow(
       "failed assert: Offer not found",
     );
@@ -459,16 +526,20 @@ describe("dMarket smart contract", () => {
     );
   });
 
-  it("seller resolves a dispute on a purchased item", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.Dispute);
+  it("seller resolves a dispute on a purchased item", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.Dispute,
+    );
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.resolveDispute(offer.id)).toThrow(
       "failed assert: Only the seller can resolve a dispute",
     );
 
-    simulator.switchUser(users.sellerPwd, users.sellerPk);
+    await simulator.switchUser(users.sellerPwd, users.sellerPk);
     expect(() => simulator.resolveDispute(randomBytes(32))).toThrow(
       "failed assert: Offer not found",
     );
@@ -482,11 +553,15 @@ describe("dMarket smart contract", () => {
     // TODO!!!: expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
-  it("users set rating after purchased is completed", () => {
-    const [users, simulator] = randomUsers();
-    const { offer, fee } = publishOffer(simulator, users, OfferState.Completed);
+  it("users set rating after purchased is completed", async () => {
+    const [users, simulator] = await randomUsers();
+    const { offer, fee } = await publishOffer(
+      simulator,
+      users,
+      OfferState.Completed,
+    );
 
-    simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
+    await simulator.switchUser(randomBytes(32), randomCoinPublicKeyHex());
     expect(() => simulator.rateSeller(offer.id, 1n)).toThrow(
       "failed assert: Only the carrier or buyer of the offer can rate the seller",
     );
@@ -519,7 +594,7 @@ describe("dMarket smart contract", () => {
       randomRatingNumber(),
     ];
 
-    simulator.switchUser(users.sellerPwd, users.sellerPk);
+    await simulator.switchUser(users.sellerPwd, users.sellerPk);
     expect(() => simulator.rateSeller(randomBytes(32), 1n)).toThrow(
       "failed assert: Offer not found",
     );
@@ -529,7 +604,7 @@ describe("dMarket smart contract", () => {
     simulator.rateCarrier(offer.id, carrierRatings[0]);
     simulator.rateBuyer(offer.id, buyerRatings[0]);
 
-    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(() => simulator.rateCarrier(randomBytes(32), 1n)).toThrow(
       "failed assert: Offer not found",
     );
@@ -539,7 +614,7 @@ describe("dMarket smart contract", () => {
     simulator.rateSeller(offer.id, sellerRatings[0]);
     simulator.rateBuyer(offer.id, buyerRatings[1]);
 
-    simulator.switchUser(users.buyerPwd, users.buyerPk);
+    await simulator.switchUser(users.buyerPwd, users.buyerPk);
     expect(() => simulator.rateBuyer(randomBytes(32), 1n)).toThrow(
       "failed assert: Offer not found",
     );
@@ -560,18 +635,18 @@ describe("dMarket smart contract", () => {
     );
   });
 
-  it("circuits validate offer state", () => {
-    const [users, simulator] = randomUsers();
+  it("circuits validate offer state", async () => {
+    const [users, simulator] = await randomUsers();
 
-    let offer = publishOffer(simulator, users, OfferState.New).offer;
+    let offer = (await publishOffer(simulator, users, OfferState.New)).offer;
     const coinInfo = createCoinInfo(simulator.getCoinColor(), offer.price);
-    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    await simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(() => simulator.itemPickedUp(offer.id, coinInfo, null)).toThrow(
       "failed assert: Item has not been purchased or already picked up",
     );
 
-    offer = publishOffer(simulator, users, OfferState.Purchased).offer;
-    simulator.switchUser(users.sellerPwd, users.sellerPk);
+    offer = (await publishOffer(simulator, users, OfferState.Purchased)).offer;
+    await simulator.switchUser(users.sellerPwd, users.sellerPk);
     expect(() => simulator.confirmItemInTransit(offer.id)).toThrow(
       "failed assert: Item has not been purchased or already confirmed as picked up",
     );

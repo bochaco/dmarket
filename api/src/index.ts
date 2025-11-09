@@ -56,8 +56,9 @@ export interface DeployedDMarketAPI {
 
   mintCoins: () => Promise<void>;
   offerItem: (id: Uint8Array, price: bigint, itemMeta: string, sellerMeta: string) => Promise<Offer>;
+  decrypt: (cipher: string) => string;
   setCarrierBid: (offerId: string, fee: bigint, carrierMeta: string) => Promise<void>;
-  purchaseItem: (offerId: string, carrierId: string, totalAmount: bigint) => Promise<void>;
+  purchaseItem: (offerId: string, carrierId: string, totalAmount: bigint, deliveryAddress: string) => Promise<void>;
   itemPickedUp: (offerId: string, depositAmount: bigint, eta: bigint | null) => Promise<void>;
   confirmItemInTransit: (offerId: string) => Promise<void>;
   setOfferEta: (offerId: string, timestamp: bigint) => Promise<void>;
@@ -207,9 +208,15 @@ export class DMarketAPI implements DeployedDMarketAPI {
     return txData.private.result;
   }
 
+  decrypt(cipher: string): string {
+    this.logger?.info(`decrypting data: ${cipher}`);
+    return this.deployedContract.deployTxData.private.initialPrivateState.decrypt(cipher);
+  }
+
   async setCarrierBid(offerId: string, fee: bigint, carrierMeta: string): Promise<void> {
     this.logger?.info(`setting carrier fee bid: ${fee}`);
-    const txData = await this.deployedContract.callTx.setCarrierBid(fromHex(offerId), fee, carrierMeta);
+    const encryptionPk = this.deployedContract.deployTxData.private.initialPrivateState.encryptionKeyPair.publicKey;
+    const txData = await this.deployedContract.callTx.setCarrierBid(fromHex(offerId), fee, encryptionPk, carrierMeta);
     this.logger?.trace({
       transactionAdded: {
         circuit: 'setCarrierBid',
@@ -219,7 +226,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
     });
   }
 
-  async purchaseItem(offerId: string, carrierId: string, totalAmount: bigint): Promise<void> {
+  async purchaseItem(offerId: string, carrierId: string, totalAmount: bigint, deliveryAddress: string): Promise<void> {
     const contractAddress = this.deployedContract.deployTxData.public.contractAddress;
     const domainSep = (await Rx.firstValueFrom(this.state$)).coinDomainSeparator;
     const coinColor: string = tokenType(domainSep, contractAddress);
@@ -230,6 +237,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
       fromHex(offerId),
       fromHex(carrierId),
       encodeCoinInfo(coinInfo),
+      deliveryAddress,
     );
     this.logger?.trace({
       transactionAdded: {

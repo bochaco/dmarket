@@ -5,7 +5,6 @@ import {
   constructorContext,
   emptyZswapLocalState,
   CoinInfo,
-  assert,
   encodeCoinPublicKey,
   encodeContractAddress,
   TokenType,
@@ -18,12 +17,16 @@ import {
   ledger,
   Offer,
 } from "../managed/dmarket/contract/index.cjs";
-import { type DMarketPrivateState, witnesses } from "../witnesses.js";
+import {
+  type DMarketPrivateState,
+  witnesses,
+  createDMarketPrivateState,
+} from "../witnesses.js";
 import { encodeCoinInfo } from "@midnight-ntwrk/ledger";
 import { randomBytes } from "./utils.js";
 
 export interface Item {
-  itemId: Uint8Array;
+  id: Uint8Array;
   price: bigint;
   meta: string;
 }
@@ -36,7 +39,7 @@ export class DMarketSimulator {
   readonly contractAddress: ContractAddress;
   circuitContext: CircuitContext<DMarketPrivateState>;
 
-  constructor(secretKey: Uint8Array, senderPk: string) {
+  constructor(dMarketPrivateState: DMarketPrivateState, senderPk: string) {
     this.contractAddress = sampleContractAddress();
     this.contract = new Contract<DMarketPrivateState>(witnesses);
     const initNonce = randomBytes(32);
@@ -45,7 +48,7 @@ export class DMarketSimulator {
       currentContractState,
       currentZswapLocalState,
     } = this.contract.initialState(
-      constructorContext({ secretKey }, senderPk),
+      constructorContext(dMarketPrivateState, senderPk),
       initNonce,
     );
     this.circuitContext = {
@@ -60,13 +63,12 @@ export class DMarketSimulator {
   }
 
   /***
-   * Switch to a different secret key for a different user
+   * Switch to a different password for a different user
    */
-  public switchUser(secretKey: Uint8Array, senderPk: string) {
+  public async switchUser(password: Uint8Array, senderPk: string) {
     this.circuitContext.currentZswapLocalState = emptyZswapLocalState(senderPk);
-    this.circuitContext.currentPrivateState = {
-      secretKey,
-    };
+    this.circuitContext.currentPrivateState =
+      await createDMarketPrivateState(password);
   }
 
   public getLedger(): Ledger {
@@ -112,6 +114,7 @@ export class DMarketSimulator {
       this.circuitContext,
       offerId,
       fee,
+      this.circuitContext.currentPrivateState.encryptionKeyPair.publicKey,
       carrierMeta,
     );
     this.circuitContext = res.context;
@@ -132,12 +135,14 @@ export class DMarketSimulator {
     offerId: Uint8Array,
     carrierId: Uint8Array,
     coinInfo: CoinInfo,
+    deliveryAddress: string,
   ): [] {
     const res = this.contract.circuits.purchaseItem(
       this.circuitContext,
       offerId,
       carrierId,
       encodeCoinInfo(coinInfo),
+      deliveryAddress,
     );
     this.circuitContext = res.context;
     return res.result;
@@ -241,35 +246,35 @@ export class DMarketSimulator {
     ).result;
   }
 
-  public genSellerId(pk: string, nonce: Uint8Array): Uint8Array {
+  public genSellerId(pk: string): Uint8Array {
     return this.contract.circuits.genSellerId(
       this.circuitContext,
       {
         bytes: encodeCoinPublicKey(pk),
       },
-      nonce,
+      this.circuitContext.currentPrivateState.secretKey,
       encodeContractAddress(this.contractAddress),
     ).result;
   }
 
-  public genCarrierId(pk: string, nonce: Uint8Array): Uint8Array {
+  public genCarrierId(pk: string): Uint8Array {
     return this.contract.circuits.genCarrierId(
       this.circuitContext,
       {
         bytes: encodeCoinPublicKey(pk),
       },
-      nonce,
+      this.circuitContext.currentPrivateState.secretKey,
       encodeContractAddress(this.contractAddress),
     ).result;
   }
 
-  public genBuyerId(pk: string, nonce: Uint8Array): Uint8Array {
+  public genBuyerId(pk: string): Uint8Array {
     return this.contract.circuits.genBuyerId(
       this.circuitContext,
       {
         bytes: encodeCoinPublicKey(pk),
       },
-      nonce,
+      this.circuitContext.currentPrivateState.secretKey,
       encodeContractAddress(this.contractAddress),
     ).result;
   }

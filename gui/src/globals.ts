@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Buffer } from 'buffer';
+import { Buffer } from "buffer";
 
 // While Vite maps the mode that the application is running in by setting either the
 // `PROD` or `DEV` variables, we also need to ensure that `NODE_ENV` is set correctly
@@ -23,7 +23,7 @@ import { Buffer } from 'buffer';
 // @ts-expect-error - support third-party libraries that require `NODE_ENV`.
 globalThis.process = {
   env: {
-    NODE_ENV: 'DEV', //import.meta.env.MODE, // Map `MODE` to `process.env.NODE_ENV`.
+    NODE_ENV: "DEV", //import.meta.env.MODE, // Map `MODE` to `process.env.NODE_ENV`.
   },
 };
 
