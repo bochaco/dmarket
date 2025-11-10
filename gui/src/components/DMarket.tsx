@@ -197,10 +197,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
     }
   }, [dMarketApiProvider]);
 
-  const declineDelivery = (offerId: string) => {
-    // TODO!!!!!!
-  };
-
   const offersAvailable = offers.filter((offer) => {
     if (offer.status !== OfferStatus.Available || !dMarketState) {
       return false;
@@ -315,7 +311,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
                       offer={offer}
                       currentRole={currentRole}
                       formProps={{ dMarketApi, setIsWorking }}
-                      declineDelivery={declineDelivery}
                       onUpdateEta={() => setUpdatingEtaOrder(offer)}
                       openDispute={() => setOpeningDispute(offer)}
                       onManageDispute={() => setManagingDisputeOrder(offer)}
@@ -336,7 +331,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
                       offer={offer}
                       currentRole={currentRole}
                       formProps={{ dMarketApi, setIsWorking }}
-                      declineDelivery={declineDelivery}
                       onUpdateEta={() => setUpdatingEtaOrder(offer)}
                       openDispute={() => setOpeningDispute(offer)}
                       onManageDispute={() => setManagingDisputeOrder(offer)}
@@ -363,7 +357,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
                       offer={offer}
                       currentRole={currentRole}
                       formProps={{ dMarketApi, setIsWorking }}
-                      declineDelivery={declineDelivery}
                       onUpdateEta={() => setUpdatingEtaOrder(offer)}
                       openDispute={() => setOpeningDispute(offer)}
                       onManageDispute={() => setManagingDisputeOrder(offer)}

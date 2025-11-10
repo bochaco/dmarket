@@ -3,12 +3,12 @@ import { Offer, OfferStatus, UserRole } from "../types";
 import RankingInput from "./RankingInput";
 import { FormProps } from "./DMarket";
 import { handleErrorForRendering } from "./WorkInProgressModal";
+import ThumbnailImage from "./ThumbnailImage";
 
 interface OrderCardProps {
   offer: Offer;
   currentRole: UserRole;
   formProps: FormProps;
-  declineDelivery: (offerId: string) => void;
   onUpdateEta: (offer: Offer) => void;
   openDispute: (offerId: string) => void;
   onManageDispute: (offer: Offer) => void;
@@ -18,7 +18,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
   offer,
   currentRole,
   formProps,
-  declineDelivery,
   onUpdateEta,
   openDispute,
   onManageDispute,
@@ -171,12 +170,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
         if (status === OfferStatus.AwaitingCarrierAcceptance) {
           return (
             <div className="flex flex-col sm:flex-row gap-2">
-              <button
-                onClick={() => declineDelivery(offer.id)}
-                className="w-full flex-grow font-bold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md bg-red-600 text-white hover:bg-red-500"
-              >
-                Decline
-              </button>
               <button
                 onClick={() =>
                   acceptDeliveryOrder(
@@ -349,6 +342,13 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
   return (
     <div className="bg-brand-surface rounded-xl shadow-lg overflow-hidden flex flex-col p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/20 hover:-translate-y-1 border border-transparent hover:border-brand-primary/50">
+      <ThumbnailImage
+        key={offer.id}
+        className="w-full h-56 object-cover mb-4"
+        alt={offer.name}
+        imageUrl={offer.imageUrls[0]}
+        onClick={() => {}}
+      />
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold text-brand-text-primary">
