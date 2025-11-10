@@ -1,6 +1,5 @@
 import { WitnessContext } from "@midnight-ntwrk/compact-runtime";
 import { Ledger } from "./managed/dmarket/contract/index.cjs";
-import { toHex } from "@midnight-ntwrk/midnight-js-utils";
 import * as forge from "node-forge";
 
 export type DMarketPrivateState = {
@@ -13,19 +12,27 @@ export type DMarketPrivateState = {
   readonly decrypt: (cipher: string) => string;
 };
 
-export const createDMarketPrivateState = async (
+export const createDMarketPrivateState = (
   password: Uint8Array,
-): Promise<DMarketPrivateState> => {
+): DMarketPrivateState => {
   // Generate the SHA-256 hash, the contract expect it to be 32 bytes long.
-  const passwordBuffer: ArrayBuffer = password.slice().buffer;
-  const hashedPassword = await crypto.subtle.digest("SHA-256", passwordBuffer);
+  const byteString = forge.util.createBuffer(password.slice().buffer);
+  const md = forge.md.sha256.create();
+  md.update(byteString.getBytes());
+  const hashedPassword = md.digest();
 
   const { publicKeyPem, privateKeyPem } = generateDeterministicKeyPair(
-    toHex(new Uint8Array(hashedPassword)),
+    hashedPassword.toHex(),
+  );
+  const byteArray = new Uint8Array(
+    hashedPassword
+      .getBytes()
+      .split("")
+      .map((char) => char.charCodeAt(0)),
   );
 
   return {
-    secretKey: new Uint8Array(hashedPassword),
+    secretKey: byteArray,
     encryptionKeyPair: {
       privateKey: privateKeyPem,
       publicKey: publicKeyPem,

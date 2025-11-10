@@ -39,7 +39,7 @@ export class DMarketSimulator {
   readonly contractAddress: ContractAddress;
   circuitContext: CircuitContext<DMarketPrivateState>;
 
-  constructor(dMarketPrivateState: DMarketPrivateState, senderPk: string) {
+  constructor(password: Uint8Array, senderPk: string) {
     this.contractAddress = sampleContractAddress();
     this.contract = new Contract<DMarketPrivateState>(witnesses);
     const initNonce = randomBytes(32);
@@ -48,7 +48,7 @@ export class DMarketSimulator {
       currentContractState,
       currentZswapLocalState,
     } = this.contract.initialState(
-      constructorContext(dMarketPrivateState, senderPk),
+      constructorContext(createDMarketPrivateState(password), senderPk),
       initNonce,
     );
     this.circuitContext = {
@@ -65,10 +65,10 @@ export class DMarketSimulator {
   /***
    * Switch to a different password for a different user
    */
-  public async switchUser(password: Uint8Array, senderPk: string) {
+  public switchUser(password: Uint8Array, senderPk: string) {
     this.circuitContext.currentZswapLocalState = emptyZswapLocalState(senderPk);
     this.circuitContext.currentPrivateState =
-      await createDMarketPrivateState(password);
+      createDMarketPrivateState(password);
   }
 
   public getLedger(): Ledger {

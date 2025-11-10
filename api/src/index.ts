@@ -396,7 +396,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
     const deployedDMarketContract = await deployContract<typeof dMarketContractInstance>(providers, {
       privateStateId: dMarketPrivateStateKey,
       contract: dMarketContractInstance,
-      initialPrivateState: await DMarketAPI.getPrivateState(providers, password),
+      initialPrivateState: DMarketAPI.getPrivateState(providers, password),
       args: [initNonce],
     });
 
@@ -434,7 +434,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
       contractAddress,
       contract: dMarketContractInstance,
       privateStateId: dMarketPrivateStateKey,
-      initialPrivateState: await DMarketAPI.getPrivateState(providers, password),
+      initialPrivateState: DMarketAPI.getPrivateState(providers, password),
     });
 
     logger?.trace({
@@ -446,10 +446,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
     return new DMarketAPI(deployedDMarketContract, providers, logger);
   }
 
-  private static async getPrivateState(
-    providers: DMarketProviders,
-    password: Uint8Array,
-  ): Promise<DMarketPrivateState> {
+  private static getPrivateState(providers: DMarketProviders, password: Uint8Array): DMarketPrivateState {
     return createDMarketPrivateState(password);
   }
 }
