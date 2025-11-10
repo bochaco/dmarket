@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 export interface SetupData {
   username: string;
@@ -11,38 +11,43 @@ interface SetupScreenProps {
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({ onComplete }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [contractOption, setContractOption] = useState<'new' | 'existing'>('new');
-  const [contractAddress, setContractAddress] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [contractOption, setContractOption] = useState<"new" | "existing">(
+    "new",
+  );
+  const [contractAddress, setContractAddress] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (contractOption === 'new' && !username.trim()) {
-      setError('Username is required when deploying a new contract.');
+    if (contractOption === "new" && !username.trim()) {
+      setError("Username is required when deploying a new contract.");
       return;
     }
-    if (contractOption === 'existing' && !contractAddress.trim()) {
-      setError('Contract address is required for existing contracts.');
+    if (contractOption === "existing" && !contractAddress.trim()) {
+      setError("Contract address is required for existing contracts.");
       return;
     }
     // Simple validation for mock address
-    if (contractOption === 'existing' && contractAddress.length < 68) {
-      setError('Please enter a valid contract address.');
+    if (contractOption === "existing" && contractAddress.length < 68) {
+      setError("Please enter a valid contract address.");
       return;
     }
 
-    setError('');
+    setError("");
     onComplete({
       username,
       password: password,
-      contractAddress: contractOption === 'existing' ? contractAddress : undefined,
+      contractAddress:
+        contractOption === "existing" ? contractAddress : undefined,
     });
   };
 
   const isButtonDisabled =
-    (contractOption === 'new' && !username.trim()) || (contractOption === 'existing' && !contractAddress.trim());
+    !username.trim() ||
+    !password.trim() ||
+    (contractOption === "existing" && !contractAddress.trim());
 
   return (
     <div className="fixed inset-0 bg-brand-background flex items-center justify-center z-[100] animate-fade-in p-4">
@@ -60,16 +65,19 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onComplete }) => {
               clipRule="evenodd"
             />
           </svg>
-          <h1 className="text-3xl font-bold text-brand-text-primary">Welcome to dMarket</h1>
+          <h1 className="text-3xl font-bold text-brand-text-primary">
+            Welcome to dMarket
+          </h1>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <input
             type="text"
-            placeholder="Username/nickname (required if a first time user)"
+            placeholder="Username/nickname"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full bg-brand-background border border-slate-700 rounded-lg px-4 py-3 text-brand-text-primary placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary transition"
+            required
           />
           <input
             type="password"
@@ -82,38 +90,44 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onComplete }) => {
           />
 
           <div>
-            <label className="text-sm font-medium text-brand-text-secondary mb-2 block">Contract Options</label>
+            <label className="text-sm font-medium text-brand-text-secondary mb-2 block">
+              Contract Options
+            </label>
             <div className="grid grid-cols-2 gap-4">
               <label
-                className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${contractOption === 'new' ? 'border-brand-primary bg-cyan-500/10' : 'border-slate-700 hover:border-brand-secondary'}`}
+                className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${contractOption === "new" ? "border-brand-primary bg-cyan-500/10" : "border-slate-700 hover:border-brand-secondary"}`}
               >
                 <input
                   type="radio"
                   name="contractOption"
                   value="new"
-                  checked={contractOption === 'new'}
-                  onChange={() => setContractOption('new')}
+                  checked={contractOption === "new"}
+                  onChange={() => setContractOption("new")}
                   className="h-4 w-4 text-brand-primary bg-slate-600 border-slate-500 focus:ring-brand-primary focus:ring-offset-brand-surface"
                 />
-                <span className="ml-3 text-sm font-semibold text-brand-text-primary">Deploy New</span>
+                <span className="ml-3 text-sm font-semibold text-brand-text-primary">
+                  Deploy New
+                </span>
               </label>
               <label
-                className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${contractOption === 'existing' ? 'border-brand-primary bg-cyan-500/10' : 'border-slate-700 hover:border-brand-secondary'}`}
+                className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${contractOption === "existing" ? "border-brand-primary bg-cyan-500/10" : "border-slate-700 hover:border-brand-secondary"}`}
               >
                 <input
                   type="radio"
                   name="contractOption"
                   value="existing"
-                  checked={contractOption === 'existing'}
-                  onChange={() => setContractOption('existing')}
+                  checked={contractOption === "existing"}
+                  onChange={() => setContractOption("existing")}
                   className="h-4 w-4 text-brand-primary bg-slate-600 border-slate-500 focus:ring-brand-primary focus:ring-offset-brand-surface"
                 />
-                <span className="ml-3 text-sm font-semibold text-brand-text-primary">Use Existing</span>
+                <span className="ml-3 text-sm font-semibold text-brand-text-primary">
+                  Use Existing
+                </span>
               </label>
             </div>
           </div>
 
-          {contractOption === 'existing' && (
+          {contractOption === "existing" && (
             <input
               type="text"
               placeholder="Enter Existing Contract Address"

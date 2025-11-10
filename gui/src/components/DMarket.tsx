@@ -207,14 +207,8 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
     }
     switch (currentRole) {
       case UserRole.Carrier:
-        return dMarketState?.userIdAsSeller !== offer.seller.id;
       case UserRole.Buyer:
-        return (
-          dMarketState?.userIdAsSeller !== offer.seller.id &&
-          !offer.bids.some(
-            (b) => b.carrier.id === dMarketState?.userIdAsCarrier,
-          )
-        );
+        return dMarketState?.userIdAsSeller !== offer.seller.id;
       case UserRole.Seller:
         return dMarketState?.userIdAsSeller === offer.seller.id;
     }
@@ -400,6 +394,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       {viewingOffer && (
         <OfferModal
           offer={viewingOffer}
+          userIdAsCarrier={dMarketState?.userIdAsCarrier}
           onClose={() => setViewingOffer(null)}
           formProps={{ dMarketApi, setIsWorking }}
         />

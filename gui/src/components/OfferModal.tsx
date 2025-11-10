@@ -7,18 +7,28 @@ import { handleErrorForRendering } from "./WorkInProgressModal";
 
 interface OfferModalProps {
   offer: Offer | null;
+  userIdAsCarrier: string | undefined;
   onClose: () => void;
   formProps: FormProps;
 }
 
 const OfferModal: React.FC<OfferModalProps> = ({
   offer,
+  userIdAsCarrier,
   onClose,
   formProps,
 }) => {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [selectedBid, setSelectedBid] = useState<CarrierBid | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const validBids = offer
+    ? offer.bids.map((b) => {
+        const disabled = userIdAsCarrier
+          ? userIdAsCarrier === b.carrier.id
+          : false;
+        return { ...b, disabled };
+      })
+    : [];
 
   React.useEffect(() => {
     if (offer?.imageUrls?.length) {
@@ -159,8 +169,8 @@ const OfferModal: React.FC<OfferModalProps> = ({
               Choose a Carrier
             </h3>
             <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-              {offer.bids.length > 0 ? (
-                offer.bids.map((bid) => (
+              {validBids.length > 0 ? (
+                validBids.map((bid) => (
                   <label
                     key={bid.carrier.id}
                     className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
@@ -173,6 +183,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
                       <input
                         type="radio"
                         name="carrier-bid"
+                        disabled={bid.disabled}
                         checked={selectedBid?.carrier.id === bid.carrier.id}
                         onChange={() => setSelectedBid(bid)}
                         className="h-4 w-4 text-brand-primary bg-slate-600 border-slate-500 focus:ring-brand-primary focus:ring-offset-brand-surface"
