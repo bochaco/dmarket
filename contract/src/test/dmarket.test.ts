@@ -246,7 +246,7 @@ describe("dMarket smart contract", () => {
       simulator.purchaseItem(randomBytes(32), users.carrierId, coinInfo, ""),
     ).toThrow("failed assert: Offer not found");
 
-    const deliveryAddress = "My-home-address-for-delivery";
+    const deliveryAddress = "My home address, for delivery";
     simulator.purchaseItem(
       offer.id,
       users.carrierId,
@@ -257,6 +257,7 @@ describe("dMarket smart contract", () => {
 
     // we switch to carrier user to be able to decrypt the delivery address
     await simulator.switchUser(users.carrierPwd, users.carrierPk);
+
     const contractOffer = simulator.getLedger().offers.lookup(offer.id);
     const decryptedDeiveryAddress =
       simulator.circuitContext.currentPrivateState.decrypt(
@@ -271,14 +272,13 @@ describe("dMarket smart contract", () => {
       fee,
     );
     offerWithDeliveryAddr.purchaseDetails.value.deliveryAddress =
-      simulator.circuitContext.currentPrivateState.encrypt(
-        deliveryAddress,
-        simulator.circuitContext.currentPrivateState.encryptionKeyPair
-          .publicKey,
+      deliveryAddress;
+    const storedOffer = simulator.getLedger().offers.lookup(offer.id);
+    storedOffer.purchaseDetails.value.deliveryAddress =
+      simulator.circuitContext.currentPrivateState.decrypt(
+        storedOffer.purchaseDetails.value.deliveryAddress,
       );
-    expect(simulator.getLedger().offers.lookup(offer.id)).toEqual(
-      offerWithDeliveryAddr,
-    );
+    expect(storedOffer).toEqual(offerWithDeliveryAddr);
     expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
   });
 

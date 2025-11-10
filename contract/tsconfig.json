@@ -4,8 +4,8 @@
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
-    "lib": ["ESNext"],
-    "target": "ES2022",
+    "lib": ["ESNext", "dom", "es6"],
+    "target": "ES6",
     "module": "ESNext",
     "moduleResolution": "node",
     "allowJs": true,
@@ -16,6 +16,8 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    "types": ["node"]
   }
 }

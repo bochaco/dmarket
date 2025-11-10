@@ -1,10 +1,14 @@
 import { WitnessContext } from "@midnight-ntwrk/compact-runtime";
 import { Ledger } from "./managed/dmarket/contract/index.cjs";
 import { toHex } from "@midnight-ntwrk/midnight-js-utils";
+import * as forge from "node-forge";
 
 export type DMarketPrivateState = {
   readonly secretKey: Uint8Array;
-  readonly encryptionKeyPair: { privateKey: string; publicKey: string };
+  readonly encryptionKeyPair: {
+    privateKey: string;
+    publicKey: string;
+  };
   readonly encrypt: (data: string, encryptionPk: string) => string;
   readonly decrypt: (cipher: string) => string;
 };
@@ -16,22 +20,19 @@ export const createDMarketPrivateState = async (
   const passwordBuffer: ArrayBuffer = password.slice().buffer;
   const hashedPassword = await crypto.subtle.digest("SHA-256", passwordBuffer);
 
-  // TODO: we are now using fake private and secret keys,
-  // they need to be generated with some crypto lib
-  const encryptionKeyPair = {
-    privateKey: toHex(password),
-    publicKey: toHex(new Uint8Array(hashedPassword)),
-  };
+  const { publicKeyPem, privateKeyPem } = generateDeterministicKeyPair(
+    toHex(new Uint8Array(hashedPassword)),
+  );
 
   return {
     secretKey: new Uint8Array(hashedPassword),
-    encryptionKeyPair,
-    // FIXME: we need to use real encryption function
+    encryptionKeyPair: {
+      privateKey: privateKeyPem,
+      publicKey: publicKeyPem,
+    },
     encrypt: (data: string, encryptionPk: string) =>
-      fakeEncrypt(data, encryptionPk),
-    // FIXME: we need to use real decryption function
-    decrypt: (cipher: string) =>
-      fakeDecrypt(cipher, encryptionKeyPair.publicKey),
+      encryptData(data, encryptionPk),
+    decrypt: (cipher: string) => decryptData(cipher, privateKeyPem),
   };
 };
 
@@ -48,7 +49,7 @@ export const witnesses = {
     encryptionPk: string,
   ): [DMarketPrivateState, string] => {
     if (data.length > 0) {
-      const cipher = fakeEncrypt(data, encryptionPk);
+      const cipher = encryptData(data, encryptionPk);
       return [privateState, cipher];
     } else {
       return [privateState, ""];
@@ -56,17 +57,42 @@ export const witnesses = {
   },
 };
 
-// TODO: temporary fake encryption function
-const fakeEncrypt = (data: string, encryptionPk: string): string => {
-  return `${encryptionPk}-${data}`;
+const encryptData = (data: string, encryptionPk: string): string => {
+  const deserializedPublicKey = forge.pki.publicKeyFromPem(encryptionPk);
+  const encryptedMessage = deserializedPublicKey.encrypt(
+    data,
+    "RSAES-PKCS1-V1_5",
+  );
+  return forge.util.encode64(encryptedMessage);
 };
 
-// TODO: temporary fake decryption function
-const fakeDecrypt = (cipher: string, encryptionPk: string): string => {
-  console.log(`DECRYPT: ${cipher} - ${encryptionPk}`);
-  if (cipher.substring(0, encryptionPk.length) === encryptionPk) {
-    return cipher.substring(encryptionPk.length + 1);
-  } else {
-    throw "FAILED-TO-DECRYPT";
-  }
+const decryptData = (cipher: string, privateKey: string): string => {
+  const deserializedPrivateKey = forge.pki.privateKeyFromPem(privateKey);
+  const decryptedMessage = deserializedPrivateKey.decrypt(
+    forge.util.decode64(cipher),
+    "RSAES-PKCS1-V1_5",
+  );
+  return decryptedMessage.toString();
+};
+
+// Generate a deterministic RSA keypair from a seed.
+const generateDeterministicKeyPair = (
+  digest: string,
+): {
+  privateKeyPem: string;
+  publicKeyPem: string;
+} => {
+  // Seed the PRNG with the password.
+  const prng = forge.random.createInstance();
+  prng.seedFileSync = () => digest;
+
+  // we use just 1024 bits, larger keys may be required in production to provide more security.
+  const keys = forge.pki.rsa.generateKeyPair({ bits: 1024, e: 0x10001, prng });
+  const publicKeyPem = forge.pki.publicKeyToPem(keys.publicKey);
+  const privateKeyPem = forge.pki.privateKeyToPem(keys.privateKey);
+
+  return {
+    publicKeyPem,
+    privateKeyPem,
+  };
 };
