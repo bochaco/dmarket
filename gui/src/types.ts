@@ -18,6 +18,37 @@ export enum OfferStatus {
   CarrierDepositConfiscated = "Carrier's Deposit Confiscated",
 }
 
+export const getOfferStatus = (state: number): OfferStatus => {
+  let status = OfferStatus.Available;
+  switch (state) {
+    case 0:
+      status = OfferStatus.Available;
+      break;
+    case 1:
+      status = OfferStatus.AwaitingCarrierAcceptance;
+      break;
+    case 2:
+      status = OfferStatus.AwaitingPickupConfirmation;
+      break;
+    case 3:
+      status = OfferStatus.InTransit;
+      break;
+    case 4:
+      status = OfferStatus.Delivered;
+      break;
+    case 5:
+      status = OfferStatus.DisputeOpened;
+      break;
+    case 6:
+      status = OfferStatus.Completed;
+    // TODO!!!
+    //status = OfferStatus.Cancelled;
+    //status = OfferStatus.Refunded;
+    //status = OfferStatus.CarrierDepositConfiscated;
+  }
+  return status;
+};
+
 export interface User {
   id: string;
   name: string;
@@ -33,14 +64,18 @@ export interface CarrierBid {
   fee: bigint;
 }
 
+export interface OfferedItem {
+  name: string;
+  description: string;
+  imageUrls: string[];
+}
+
 export interface Offer {
   id: string;
   status: OfferStatus;
   eta: Date | null;
-  name: string;
-  description: string;
+  item: OfferedItem;
   price: bigint;
-  imageUrls: string[];
   seller: User;
   bids: CarrierBid[];
   purchaseDetails: {

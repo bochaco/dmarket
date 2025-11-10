@@ -175,7 +175,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
                   acceptDeliveryOrder(
                     offer.id,
                     offer.price + deliveryFee,
-                    offer.name,
+                    offer.item.name,
                   )
                 }
                 className="w-full flex-grow font-bold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 bg-gradient-to-r from-brand-accent to-brand-primary text-white hover:from-lime-400 hover:to-cyan-400"
@@ -195,7 +195,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
                 Update ETA
               </button>
               <button
-                onClick={() => markAsDelivered(offer.id, offer.name)}
+                onClick={() => markAsDelivered(offer.id, offer.item.name)}
                 className="w-full flex-grow font-bold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 bg-gradient-to-r from-brand-accent to-brand-primary text-white hover:from-lime-400 hover:to-cyan-400"
               >
                 Mark as Delivered
@@ -208,7 +208,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
         if (status === OfferStatus.AwaitingPickupConfirmation) {
           return (
             <button
-              onClick={() => confirmCarrierPickup(offer.id, offer.name)}
+              onClick={() => confirmCarrierPickup(offer.id, offer.item.name)}
               className="w-full flex-grow font-bold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 bg-gradient-to-r from-brand-accent to-brand-primary text-white hover:from-lime-400 hover:to-cyan-400"
             >
               Confirm Carrier Pickup
@@ -231,7 +231,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
           return (
             <div className="flex flex-col sm:flex-row gap-2">
               <button
-                onClick={() => confirmDelivered(offer.id, offer.name)}
+                onClick={() => confirmDelivered(offer.id, offer.item.name)}
                 className="w-full flex-grow font-bold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 bg-gradient-to-r from-brand-accent to-brand-primary text-white hover:from-lime-400 hover:to-cyan-400"
               >
                 Confirm & Finalize Payment
@@ -273,7 +273,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
               <RankingInput
                 currentRating={buyerRatedSeller}
                 onRate={(rating) =>
-                  rateUser(offer.id, offer.name, "seller", rating)
+                  rateUser(offer.id, offer.item.name, "seller", rating)
                 }
                 disabled={buyerRatedSeller > 0}
               />
@@ -286,7 +286,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
                 <RankingInput
                   currentRating={buyerRatedCarrier}
                   onRate={(rating) =>
-                    rateUser(offer.id, offer.name, "carrier", rating)
+                    rateUser(offer.id, offer.item.name, "carrier", rating)
                   }
                   disabled={buyerRatedCarrier > 0}
                 />
@@ -302,7 +302,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
             <RankingInput
               currentRating={sellerRatedBuyer}
               onRate={(rating) =>
-                rateUser(offer.id, offer.name, "buyer", rating)
+                rateUser(offer.id, offer.item.name, "buyer", rating)
               }
               disabled={sellerRatedBuyer > 0}
             />
@@ -316,7 +316,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
             <RankingInput
               currentRating={carrierRatedBuyer}
               onRate={(rating) =>
-                rateUser(offer.id, offer.name, "buyer", rating)
+                rateUser(offer.id, offer.item.name, "buyer", rating)
               }
               disabled={carrierRatedBuyer > 0}
             />
@@ -345,14 +345,14 @@ const OrderCard: React.FC<OrderCardProps> = ({
       <ThumbnailImage
         key={offer.id}
         className="w-full h-56 object-cover mb-4"
-        alt={offer.name}
-        imageUrl={offer.imageUrls[0]}
+        alt={offer.item.name}
+        imageUrl={offer.item.imageUrls[0]}
         onClick={() => {}}
       />
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold text-brand-text-primary">
-            {offer.name}
+            {offer.item.name}
           </h3>
           <p className="text-xs text-brand-text-secondary">
             Offer #{`${offer.id.substring(0, 10)}...`}

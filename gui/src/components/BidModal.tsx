@@ -35,7 +35,7 @@ const BidModal: React.FC<BidModalProps> = ({
             onClose: null,
             status: "in-progress",
             task: "Adding a fee bid to the offer",
-            desc: `Item: ${offer.name}`,
+            desc: `Item: ${offer.item.name}`,
           });
           await formProps.dMarketApi.setCarrierBid(
             offerId,
@@ -74,7 +74,7 @@ const BidModal: React.FC<BidModalProps> = ({
                 Place Your Bid
               </h2>
               <p className="text-sm text-brand-text-secondary">
-                For "{offer.name}"
+                For "{offer.item.name}"
               </p>
             </div>
             <button

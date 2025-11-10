@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import { Offer } from '../types';
-import { FormProps } from './DMarket';
-import { handleErrorForRendering } from './WorkInProgressModal';
+import React, { useCallback, useState } from "react";
+import { Offer } from "../types";
+import { FormProps } from "./DMarket";
+import { handleErrorForRendering } from "./WorkInProgressModal";
 
 interface EtaModalProps {
   offer: Offer;
@@ -11,17 +11,17 @@ interface EtaModalProps {
 
 const formatDate = (date: Date) => {
   return date.toLocaleString([], {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
 const EtaModal: React.FC<EtaModalProps> = ({ offer, formProps, onClose }) => {
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
 
   const setOfferEta = useCallback(
     async (offerId: string, itemName: string, newEta: Date) => {
@@ -30,14 +30,19 @@ const EtaModal: React.FC<EtaModalProps> = ({ offer, formProps, onClose }) => {
           const formattedEta = formatDate(newEta);
           formProps.setIsWorking({
             onClose: null,
-            status: 'in-progress',
-            task: 'Updating ETA for item delivery',
+            status: "in-progress",
+            task: "Updating ETA for item delivery",
             desc: `Item: ${itemName} - New ETA: ${formattedEta}`,
           });
-          await formProps.dMarketApi.setOfferEta(offerId, BigInt(newEta.getTime()));
+          await formProps.dMarketApi.setOfferEta(
+            offerId,
+            BigInt(newEta.getTime()),
+          );
           formProps.setIsWorking(null);
         } catch (error) {
-          formProps.setIsWorking(handleErrorForRendering(error, 'Updating ETA for item delivery'));
+          formProps.setIsWorking(
+            handleErrorForRendering(error, "Updating ETA for item delivery"),
+          );
         }
       }
     },
@@ -50,7 +55,7 @@ const EtaModal: React.FC<EtaModalProps> = ({ offer, formProps, onClose }) => {
       onClose();
       // Format the date and time into a readable string
       const eta = new Date(`${date}T${time}`);
-      setOfferEta(offer.id, offer.name, eta);
+      setOfferEta(offer.id, offer.item.name, eta);
     }
   };
 
@@ -60,8 +65,12 @@ const EtaModal: React.FC<EtaModalProps> = ({ offer, formProps, onClose }) => {
         <div className="p-8">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-brand-text-primary">Update ETA</h2>
-              <p className="text-sm text-brand-text-secondary">For Order #{`${offer.id.substring(0, 10)}...`}</p>
+              <h2 className="text-2xl font-bold text-brand-text-primary">
+                Update ETA
+              </h2>
+              <p className="text-sm text-brand-text-secondary">
+                For Order #{`${offer.id.substring(0, 10)}...`}
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -74,7 +83,10 @@ const EtaModal: React.FC<EtaModalProps> = ({ offer, formProps, onClose }) => {
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 mb-6">
               <div>
-                <label htmlFor="eta-date" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                <label
+                  htmlFor="eta-date"
+                  className="block text-sm font-medium text-brand-text-secondary mb-2"
+                >
                   Delivery Date
                 </label>
                 <input
@@ -87,7 +99,10 @@ const EtaModal: React.FC<EtaModalProps> = ({ offer, formProps, onClose }) => {
                 />
               </div>
               <div>
-                <label htmlFor="eta-time" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                <label
+                  htmlFor="eta-time"
+                  className="block text-sm font-medium text-brand-text-secondary mb-2"
+                >
                   Delivery Time
                 </label>
                 <input

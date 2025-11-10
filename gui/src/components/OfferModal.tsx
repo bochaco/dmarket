@@ -31,8 +31,8 @@ const OfferModal: React.FC<OfferModalProps> = ({
     : [];
 
   React.useEffect(() => {
-    if (offer?.imageUrls?.length) {
-      setSelectedImageUrl(offer.imageUrls[0]);
+    if (offer?.item.imageUrls?.length) {
+      setSelectedImageUrl(offer.item.imageUrls[0]);
     }
     setSelectedBid(null); // Reset selection when modal opens
   }, [offer]);
@@ -76,7 +76,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
     if (selectedBid) {
       onClose();
       buyOfferWithCarrier(
-        offer.name,
+        offer.item.name,
         offer.id,
         selectedBid,
         totalPrice,
@@ -103,7 +103,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
       >
         {/* Left: Image Thumbnails */}
         <div className="w-24 bg-brand-background p-4 overflow-y-auto">
-          {offer.imageUrls.map((url, index) => (
+          {offer.item.imageUrls.map((url, index) => (
             <ThumbnailImage
               key={index}
               className={`w-full aspect-square object-cover rounded-md mb-2 cursor-pointer border-2 transition-all ${
@@ -111,7 +111,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
                   ? "border-brand-primary"
                   : "border-transparent hover:border-brand-secondary"
               }`}
-              alt={`${offer.name} thumbnail ${index + 1}`}
+              alt={`${offer.item.name} thumbnail ${index + 1}`}
               imageUrl={url}
               onClick={() => setSelectedImageUrl(url)}
             />
@@ -124,7 +124,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
             key={offer.id}
             className="max-w-full max-h-full object-contain rounded-lg"
             imageUrl={selectedImageUrl || " "}
-            alt={offer.name}
+            alt={offer.item.name}
             onClick={() => {}}
           />
         </div>
@@ -133,7 +133,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
         <div className="w-1/3 max-w-sm bg-brand-surface p-6 flex flex-col overflow-y-auto">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-2xl font-bold text-brand-text-primary">
-              {offer.name}
+              {offer.item.name}
             </h2>
             <button
               onClick={onClose}
@@ -161,7 +161,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
           </div>
 
           <p className="text-sm text-brand-text-secondary mb-6 flex-grow">
-            {offer.description}
+            {offer.item.description}
           </p>
 
           <div className="mb-6">

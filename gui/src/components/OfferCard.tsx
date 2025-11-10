@@ -53,16 +53,16 @@ const OfferCard: React.FC<OfferCardProps> = ({
       <ThumbnailImage
         key={offer.id}
         className="w-full h-56 object-cover"
-        alt={offer.name}
-        imageUrl={offer.imageUrls[0]}
+        alt={offer.item.name}
+        imageUrl={offer.item.imageUrls[0]}
         onClick={() => {}}
       />
       <div className="p-6 flex flex-col flex-grow">
         <h3 className="text-lg font-bold text-brand-text-primary mb-2">
-          {offer.name}
+          {offer.item.name}
         </h3>
         <p className="text-sm text-brand-text-secondary mb-4 flex-grow line-clamp-3">
-          {offer.description}
+          {offer.item.description}
         </p>
         <div className="flex justify-between items-center mb-4">
           <span className="text-xs text-brand-text-secondary">
