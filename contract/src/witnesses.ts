@@ -15,7 +15,8 @@ export type DMarketPrivateState = {
 export const createDMarketPrivateState = (
   password: Uint8Array,
 ): DMarketPrivateState => {
-  // Generate the SHA-256 hash, the contract expect it to be 32 bytes long.
+  // Generate the SHA-256 hash of the password to generate
+  // the secret witness and encrpytion key pair.
   const byteString = forge.util.createBuffer(password.slice().buffer);
   const md = forge.md.sha256.create();
   md.update(byteString.getBytes());
@@ -24,7 +25,9 @@ export const createDMarketPrivateState = (
   const { publicKeyPem, privateKeyPem } = generateDeterministicKeyPair(
     hashedPassword.toHex(),
   );
-  const byteArray = new Uint8Array(
+
+  const secretKey = new Uint8Array(32);
+  secretKey.set(
     hashedPassword
       .getBytes()
       .split("")
@@ -32,7 +35,7 @@ export const createDMarketPrivateState = (
   );
 
   return {
-    secretKey: byteArray,
+    secretKey,
     encryptionKeyPair: {
       privateKey: privateKeyPem,
       publicKey: publicKeyPem,

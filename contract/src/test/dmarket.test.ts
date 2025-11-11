@@ -166,6 +166,45 @@ const publishOffer = (
 };
 
 describe("dMarket smart contract", () => {
+  it("witnesses and private state generation", () => {
+    const [users, simulator] = randomUsers();
+    simulator.switchUser(users.carrierPwd, users.carrierPk);
+    const carrierEncryptionKeyPair =
+      simulator.circuitContext.currentPrivateState.encryptionKeyPair;
+    const carrierSecretKey =
+      simulator.circuitContext.currentPrivateState.secretKey;
+
+    simulator.switchUser(users.buyerPwd, users.buyerPk);
+    const buyerEncryptionKeyPair =
+      simulator.circuitContext.currentPrivateState.encryptionKeyPair;
+    const buyerSecretKey =
+      simulator.circuitContext.currentPrivateState.secretKey;
+
+    simulator.switchUser(users.sellerPwd, users.sellerPk);
+    const sellerEncryptionKeyPair =
+      simulator.circuitContext.currentPrivateState.encryptionKeyPair;
+    const sellerSecretKey =
+      simulator.circuitContext.currentPrivateState.secretKey;
+
+    expect(carrierEncryptionKeyPair).not.toEqual(buyerEncryptionKeyPair);
+    expect(carrierEncryptionKeyPair).not.toEqual(sellerEncryptionKeyPair);
+    expect(sellerEncryptionKeyPair).not.toEqual(buyerEncryptionKeyPair);
+
+    expect(carrierSecretKey).not.toEqual(buyerSecretKey);
+    expect(carrierSecretKey).not.toEqual(sellerSecretKey);
+    expect(sellerSecretKey).not.toEqual(buyerSecretKey);
+
+    const plainText = "Hello Midnight World!";
+    const cipher = simulator.circuitContext.currentPrivateState.encrypt(
+      plainText,
+      sellerEncryptionKeyPair.publicKey,
+    );
+    expect(plainText).not.toEqual(cipher);
+    const decrypted =
+      simulator.circuitContext.currentPrivateState.decrypt(cipher);
+    expect(plainText).toEqual(decrypted);
+  });
+
   it("publishing an offer", () => {
     const pk = randomCoinPublicKeyHex();
     const pwd = randomBytes(32);

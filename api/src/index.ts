@@ -151,9 +151,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
         const nonce = privateState.secretKey;
         const contractAddr = encodeContractAddress(this.deployedContractAddress);
 
-        const userIdAsSeller = pureCircuits.genSellerId(zswapPk, nonce, contractAddr);
-        const userIdAsCarrier = pureCircuits.genCarrierId(zswapPk, nonce, contractAddr);
-        const userIdAsBuyer = pureCircuits.genBuyerId(zswapPk, nonce, contractAddr);
+        const userIdAsSeller = pureCircuits.Utils_genSellerId(zswapPk, nonce, contractAddr);
+        const userIdAsCarrier = pureCircuits.Utils_genCarrierId(zswapPk, nonce, contractAddr);
+        const userIdAsBuyer = pureCircuits.Utils_genBuyerId(zswapPk, nonce, contractAddr);
 
         return {
           carriers: carriers,

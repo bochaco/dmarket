@@ -1,0 +1,60 @@
+module Utils {
+  import CompactStandardLibrary;
+  import "./Types";
+
+  // Check the caller is the buyer
+  export circuit isCallerTheBuyer(offer: Offer, secret: Bytes<32>): Boolean {
+    const buyerId = genBuyerId(ownPublicKey(), secret, kernel.self().bytes);
+    return (offer.purchaseDetails.is_some && offer.purchaseDetails.value.buyerId == buyerId);
+  }
+
+  // Check the caller is the selected carrier
+  export circuit isCallerTheCarrier(offer: Offer, secret: Bytes<32>): Boolean {
+    const carrierId = genCarrierId(ownPublicKey(), secret, kernel.self().bytes);
+    return (offer.purchaseDetails.is_some &&
+            offer.purchaseDetails.value.selectedCarrierId == carrierId);
+  }
+
+  // Check the caller is the seller
+  export circuit isCallerTheSeller(offer: Offer, secret: Bytes<32>): Boolean {
+    const sellerId = genSellerId(ownPublicKey(), secret, kernel.self().bytes);
+    return (offer.seller == sellerId);
+  }
+
+  // Generates an Offer ID using the item's id, price, and seller ID
+  export circuit genOfferId(sellerId: Bytes<32>, itemId: Bytes<32>, price: Uint<128>): Bytes<32> {
+    return persistentHash<Vector<4, Bytes<32>>>(
+             [pad(32, "dmarket_offer_id:"), sellerId, itemId, price as Bytes<32>]);
+  }
+
+  // Generates a seller ID from a public key.
+  export circuit genSellerId(pk: ZswapCoinPublicKey, nonce: Bytes<32>, instanceSalt: Bytes<32>): Bytes<32> {
+    return (computeUserId(pk, nonce, instanceSalt, pad(32, "dmarket_seller_id:")));
+  }
+
+  // Generates a buyer ID from a public key.
+  export circuit genBuyerId(pk: ZswapCoinPublicKey, nonce: Bytes<32>, instanceSalt: Bytes<32>): Bytes<32> {
+    return (computeUserId(pk, nonce, instanceSalt, pad(32, "dmarket_buyer_id:")));
+  }
+
+  // Generates a carrier ID from a public key.
+  export circuit genCarrierId(pk: ZswapCoinPublicKey, nonce: Bytes<32>, instanceSalt: Bytes<32>): Bytes<32> {
+    return (computeUserId(pk, nonce, instanceSalt, pad(32, "dmarket_carrier_id:")));
+  }
+
+  /*
+  * Creates a shielded user ID, using the contract address to prevent duplicate commitments among other dMaket contracts.
+  * @param {ZswapCoinPublicKey} pk - The public key of the identity being committed.
+  * @param {Bytes<32>} nonce - A private nonce to scope the commitment, which is chosen and provided by teh user.
+  * @returns {Bytes<32>} The computed user ID.
+  */
+  export circuit computeUserId(
+                   pk: ZswapCoinPublicKey,
+                   nonce: Bytes<32>,
+                   instanceSalt: Bytes<32>,
+                   domain: Bytes<32>
+                   ): Bytes<32> {
+    return disclose(persistentHash<Vector<4, Bytes<32>>>(
+                      [pk.bytes, nonce, instanceSalt, pad(32, "dmarket_user_id:")]));
+  }
+}

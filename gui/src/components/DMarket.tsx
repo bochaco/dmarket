@@ -39,7 +39,6 @@ import {
   type DMarketDerivedState,
   type DeployedDMarketAPI,
 } from "../../../api/src/index";
-import { toHex } from "@midnight-ntwrk/midnight-js-utils";
 
 // Props to pass to Modals displaying a form and using the dMarket API
 export interface FormProps {
@@ -180,7 +179,6 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
     [dMarketApiProvider],
   );
 
-  // Handlers
   const handleDisconnect = useCallback(async () => {
     if (dMarketApiProvider) {
       setIsWorking({

@@ -238,7 +238,7 @@ export class DMarketSimulator {
   }
 
   public genOfferId(item: Item, sellerId: Uint8Array): Uint8Array {
-    return this.contract.circuits.genOfferId(
+    return this.contract.circuits.Utils_genOfferId(
       this.circuitContext,
       sellerId,
       item.id,
@@ -247,7 +247,7 @@ export class DMarketSimulator {
   }
 
   public genSellerId(pk: string): Uint8Array {
-    return this.contract.circuits.genSellerId(
+    return this.contract.circuits.Utils_genSellerId(
       this.circuitContext,
       {
         bytes: encodeCoinPublicKey(pk),
@@ -258,7 +258,7 @@ export class DMarketSimulator {
   }
 
   public genCarrierId(pk: string): Uint8Array {
-    return this.contract.circuits.genCarrierId(
+    return this.contract.circuits.Utils_genCarrierId(
       this.circuitContext,
       {
         bytes: encodeCoinPublicKey(pk),
@@ -269,7 +269,7 @@ export class DMarketSimulator {
   }
 
   public genBuyerId(pk: string): Uint8Array {
-    return this.contract.circuits.genBuyerId(
+    return this.contract.circuits.Utils_genBuyerId(
       this.circuitContext,
       {
         bytes: encodeCoinPublicKey(pk),
