@@ -1,158 +1,165 @@
 # Decentralized Escrow Marketplace (dMarket)
 
-[![Generic badge](https://img.shields.io/badge/React-18.x-blue.svg)](https://shields.io/)
-[![Generic badge](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://shields.io/)
+[![React 19.x](https://img.shields.io/badge/React-18.x-blue.svg)](https://react.dev)
+[![TypeScript 5.x](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org)
 
-## Overview
+## Summary
 
-This project is a sophisticated web application that simulates a decentralized marketplace (DApp) featuring a robust 3-party escrow system. It creates a trustless environment for transactions involving a **Seller**, a **Buyer**, and a **Carrier**. The seller publishes offers, carriers bid to deliver them, and the buyer purchases the item while simultaneously selecting their preferred carrier. Funds are managed through a simulated smart contract escrow system, ensuring that the carrier makes a security deposit and all parties are paid out only upon successful, confirmed delivery. The entire process is wrapped in a shiny, modern, and highly user-friendly graphical interface.
+dMarket is a privacy-aware decentralized marketplace (dApp) that implements a three-party escrow flow (Seller, Carrier, Buyer) with secure handoff, dispute resolution, and selective disclosure. It demonstrates how Midnight-native privacy and ZK tooling can be combined with an intuitive web UI to create trustworthy, user-friendly commerce workflows that lowers logistics and selling costs.
 
----
+## Core idea and problem solved
 
-## Key Features
+Many physical-good marketplaces suffer from trust, logistics, and dispute risks: buyers worry about receiving items, sellers worry about payment, and carriers need guarantees for delivery payment. dMarket solves this with a coordinated escrow + carrier-commitment flow where funds and reputations are protected, on-chain, and a secure handoff verifies physical delivery.
 
-- **Role-Based Interface**: Users can seamlessly switch between Buyer, Seller, and Carrier views to manage their specific tasks.
-- **Carrier Bidding System**: Carriers can browse available offers and place competitive bids for the delivery fee, creating a dynamic market for logistics.
-- **Informed Buyer Choice**: Buyers can view an offer's details in a sophisticated modal, compare all bidding carriers based on their fee and reputation, and select their preferred option at the time of purchase.
-- **AI-Powered Offer Creation**: Sellers can optionally leave the item description blank, and the application will use the Google Gemini API to generate a compelling product description automatically.
-- **Secure QR Code Handoff**: To confirm delivery, the carrier displays a unique QR code which the buyer must scan, ensuring a secure and verifiable in-person handoff.
-- **Automated Escrow Failsafe**: Once an item is delivered, a confirmation timer begins. If the buyer takes no action (e.g., finalize or dispute) within the time limit, the system automatically finalizes the payment, ensuring sellers and carriers are never left in limbo.
-- **Advanced Dispute Resolution**: Buyers can open a dispute on delivered items. Sellers are then presented with a detailed resolution modal where they can choose to:
-    - **Issue a full refund**: Returns the funds to the buyer.
-    - **Reject the dispute**: Finalizes payment to the seller and carrier.
-    - **Confiscate Carrier's Deposit**: Refunds the buyer from the carrier's deposit if the carrier is at fault (e.g., lost item).
-    - **Escalate to an arbitrator**: Moves the issue to a third party for review.
-- **360-Degree Reputation System**: After a transaction is complete, all participating parties can rate each other on a 5-star scale, contributing to a community-driven trust system.
-- **Dynamic Leaderboards**: A "Top Performers" panel showcases the highest-rated Sellers, Buyers, and Carriers.
-- **Modern & Responsive UI**: Built with React and styled with Tailwind CSS for a sleek, visually appealing, and responsive user experience.
+Beyond trust and dispute reduction, dMarket lowers the cost of selling by removing dependency on centralized marketplace intermediaries that typically charge platform usage fees and commissions (commonly around 15%). By enabling direct buyer–seller–carrier coordination and on-chain or Midnight-managed settlement, sellers keep more margin or can pass savings to buyers.
 
----
+The platform also democratises access to carriers and couriers: independent drivers, local couriers, and small logistics providers can bid alongside larger carriers, making delivery services available to sellers of all product types and sizes while fostering competition that lowers logistics costs.
 
-## Detailed Order Fulfillment Lifecycle
+## Privacy & selective disclosure of delivery data
 
-The core of the application is its precise and secure order state machine, now featuring a competitive bidding process and carrier commitment.
+When an order is placed and a carrier is selected, the buyer's delivery address is encrypted specifically for the selected carrier's public key (or a transient delivery key derived for that carrier). Only the designated carrier can decrypt and view the delivery address — other parties, including non-selected carriers and the public, never see the address. This selective disclosure model reduces data exposure, limits the attack surface for sensitive information, and aligns directly with Midnight's privacy-first ethos and the hackathon's goals around selective disclosure and data minimization.
 
-**1. Offer Published (Seller)**
-   - A **Seller** creates a new offer for an item. The offer appears on the main marketplace.
+## Ratings & reputation — building trust
 
-**2. Carriers Bid on Delivery (Carrier)**
-   - **Carriers** browse the available offers and can place a bid on any item they wish to deliver, specifying their delivery fee.
+Ratings and reputation are a core security and trust mechanism in dMarket. After an order completes (or is auto-finalized), Buyer, Seller, and Carrier are prompted to rate each other. Key properties:
 
-**3. Buyer Purchases Item & Selects Carrier (Buyer)**
-   - A **Buyer** views an offer and selects their preferred carrier from the list of bidders.
-   - Upon purchase, a new order is created with the status `Awaiting Carrier Acceptance`. The original offer is removed from the marketplace.
+- 5-star mutual ratings: participants rate one another on a 1–5 star scale (in future versions with optional short feedback).
+- Reputation impact: ratings update participant reputation scores which are visible in profiles and can be used to sort carrier bids and seller listings.
+- Weighting & stake signals: reputation can be combined with recent performance and stake/deposit behavior (e.g., carriers who repeatedly lose disputes receive harsher penalties) to discourage bad actors.
+- Sybil resistance & decay: the system favors sustained good behavior by decaying old ratings and requiring continual activity or minimal staking to maintain high visibility, raising the cost of sybil attacks.
+- Transparency & privacy: public reputation aggregates are shown (e.g., average rating, number of reviews) while detailed feedback can be selectively disclosed to involved parties to preserve privacy using the same asymetric encryption technique used on delivery addresses.
 
-**4. Carrier Accepts or Declines (Carrier)**
-   - The selected **Carrier** is notified and sees the pending order in their dashboard. They have two choices:
-     - **Accept & Stake Deposit**: The carrier accepts the job, which simulates staking their security deposit. The order status changes to `Awaiting Pickup Confirmation`.
-     - **Decline**: If the carrier declines, the order is cancelled, and the original offer is **re-listed on the marketplace** (minus the declined carrier's bid), allowing the buyer to choose another carrier.
+These mechanics reduce counterparty risk, help buyers choose reliable carriers, and create economic incentives for honest behavior.
 
-**5. Seller Confirms Pickup (Seller)**
-   - The **Seller** physically hands the item to the committed carrier and then confirms this by clicking "Confirm Carrier Pickup".
-   - The order status changes to `In Transit`.
+## Main end-to-end (E2E) flow — primary demo use case
 
-**6. Carrier Initiates Handoff (Carrier)**
-   - Upon arrival at the buyer's location, the **Carrier** marks the order as delivered. This moves the order to `Awaiting Scan Confirmation` and generates a unique QR code on the carrier's screen.
+This is most common flow which describes the product value and technical depth.
 
-**7. Buyer Confirms via QR Scan (Buyer)**
-   - The **Buyer** scans the QR code presented by the carrier. This secure action confirms the physical handoff, and the order status changes to `Delivered`.
+1. Seller publishes an offer to the marketplace.
+2. Carriers place bids on the offer (delivery fee + reputation shown).
+3. Buyer purchases the item and selects a carrier from the bidder list.
+4. Selected Carrier accepts the job and stakes a security deposit (equal to the deposit made by the buyer).
+5. Seller confirms carrier pickup (item leaves seller custody).
+6. Carrier arrives to deliver, confirms buyer's identity offchain, and marks the order as delivered onchain.
+7. A timed confirmation window opens during which the buyer can finalize or raise a dispute.
+   - If buyer finalizes: funds are released to seller and carrier, and rating prompts are shown.
+   - If buyer raises a dispute: the dispute flow (refund / confiscate deposit / escalate) is triggered and the order is paused until resolution.
+   - If buyer does nothing: the confirmation window expires and the system finalizes the order automatically.
 
-**8. Buyer's Confirmation Window (Timed Failsafe)**
-   - A **confirmation timer** (e.g., 72 hours, simulated as 2 minutes) begins. The **Buyer** has this window to inspect the item and take action:
-     - **Finalize Payment**: If the item is acceptable, the buyer confirms, moving the order to `Completed`.
-     - **File a Dispute**: If there's an issue, the buyer files a dispute, moving the order to `Dispute Opened` and pausing the timer.
-     - **If no action is taken**: When the timer expires, the system **automatically moves the order to `Completed`**, ensuring the seller and carrier are paid.
+This flow demonstrates trust guarantees, carrier commitment, verifiable physical handoff, timed failsafes, and dispute handling.
 
-**9. Rating (All Parties)**
-   - Once an order is `Completed`, all three parties can rate each other, updating their reputation scores.
+## How dMarket maps to the Midnight Summit 2025 Hackathon judging rubric
 
----
+Below is a concise mapping to help judges score the project across the core domains of [Midnight Summit 2025 Hackathon](https://midnight.network/blog/everything-you-need-to-know-for-the-2025-midnight-summit-hackathon).
 
-## Order State Transition Diagram
+- Product & Vision
+  - Problem: reduces friction and risk for peer-to-peer physical goods via escrow + carrier guarantees.
+  - Vision: privacy-preserving commerce where off-chain logistics and on-chain guarantees coexist. The README and UI focus on clarity of roles and the real-world value proposition.
+  - Midnight fit: the project uses Midnight contracts and tooling to model escrow, deposit, and selective disclosures.
+  - Selective disclosure: delivery addresses and other sensitive buyer data are encrypted and only revealed to the selected carrier, demonstrating a concrete, privacy-first implementation of Midnight principles.
 
-The following diagram illustrates the complete lifecycle of an order, from its creation to its final resolution.
+- Engineering & Implementation
+  - Architecture: front-end (`gui/`), backend/API (`api/`), contract logic (`contract/`), and test harnesses (`contract/test`) are separated for maintainability. The `api/` package implements the HTTP endpoints used by the UI, and helpers that interact with contracts and the local proof server.
+  - Reproducibility: repo contains test artifacts and contract sources under `contract/` and contract tests under `contract/test`.
+  - Midnight tech: ZK artifacts, witness code and compact contracts live in `contract/managed/dmarket` showing concrete use of Midnight ZK/contract primitives.
 
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> OfferPublished
+- User Experience & Design
+  - Role-based dashboards (Buyer, Seller, Carrier) and clear modals for bidding/purchase/delivery minimize cognitive load.
+  - Simple handoff and dispute flows provide a trustworthy UX for the critical physical verification step.
 
-    state OfferPublished {
-        [*] --> Bidding: Carrier places bid
-    }
+- Quality Assurance & Reliability
+  - Contract-level tests and a simulator are present under `contract/test` and `contract/test/dmarket-simulator.ts`.
+  - The UI is developed with a local dev server and can be used to execute a complete demo flow.
 
-    OfferPublished --> AwaitingCarrierAcceptance: Buyer purchases & selects carrier
+- Communication & Advocacy
+  - This repository includes a focused README (this file) that maps features to judging domains and points to the demo flow.
+  - The UI is designed to be screen-share friendly to showcase the E2E flow in demo conditions.
 
-    state AwaitingCarrierAcceptance {
-        [*] --> Pending
-        Pending --> AwaitingPickupConfirmation: Carrier accepts & stakes deposit
-        Pending --> OfferPublished: Carrier declines
-    }
+- Business Development & Viability
+  - Target audience: peer-to-peer sellers and local delivery networks.
+  - Monetization paths: marketplace fees, premium carrier subscriptions, or escrow service fees.
+  - Seller cost savings: dMarket reduces reliance on centralized platform commissions (often ~15%), allowing sellers to retain higher margins or offer lower prices to buyers.
+  - Democratized carrier access: the carrier bidding model opens delivery to independent couriers and small logistics providers as well as large firms, expanding coverage and lowering logistics costs through competition.
+  - Scaling: off-chain order/book management with on-chain settlement patterns keeps per-order cost low while preserving key guarantees.
 
-    AwaitingPickupConfirmation --> InTransit: Seller confirms pickup
-    InTransit --> AwaitingScan: Carrier marks for handoff
-    AwaitingScan --> Delivered: Buyer scans QR code
+## Quick architecture / where to look in the repo
 
-    state Delivered {
-        [*] --> Main
-        Main --> Completed: Buyer confirms & finalizes payment
-        Main --> Completed: Timer Expires
-        Main --> DisputeOpened: Buyer files dispute
-    }
+- `gui/` — React + TypeScript web UI, demo-ready front-end (components, modals, and the main app).
+- `contract/` — contract sources, compact artifacts, ZK witness code and a `managed/dmarket` folder containing compiled artifacts and keys.
+- `api/` — backend integration and off-chain logic: server entrypoint, API routes, and utility wrappers for calling contracts and proof-server endpoints.
 
-    state DisputeOpened {
-        [*] --> Active
-        Active --> Completed: Seller rejects dispute
-        Active --> Refunded: Seller issues refund
-        Active --> AwaitingArbitration: Seller escalates
-        Active --> CarrierDepositConfiscated: Seller confiscates deposit
-    }
+## Getting started (local demo)
 
-    Completed --> CanRate: Payouts processed
-    Refunded --> [*]: Order closed
-    AwaitingArbitration --> [*]: Order closed
-    CarrierDepositConfiscated --> [*]: Order closed
-    CanRate --> [*]: Order closed
+Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Docker](https://www.docker.com/) for running the [local proof server](https://docs.midnight.network/quickstart/builder-quickstart#install-docker-desktop) as instructed in the Midnight Network documentation.
+- [Midnight Lace wallet](https://chromewebstore.google.com/detail/lace-beta/hgeekaiplokcnmakghbdfbgnlfheichg) browser extension (for GUI usage).
+- [Compact developer tools](https://docs.midnight.network/blog/compact-developer-tools).
+
+Install and run
+
+### 1. Clone the Repository
+
+```sh
+git clone https://github.com/bochaco/dmarket.git
+cd dmarket
 ```
 
----
+### 2. Install Dependencies
 
-## Prerequisites
+Install dependencies for all packages:
 
-- **Node.js**: v18 or higher
-- **npm** or **yarn** package manager
-- [Midnight Lace wallet extension](https://chromewebstore.google.com/detail/lace-beta/hgeekaiplokcnmakghbdfbgnlfheichg) installed in your browser
-
----
-
-## Installation
-
-```bash
-# Install dependencies
+```sh
 npm install
-
-# Or using yarn
-yarn install
+# or, if using yarn:
+# yarn install
 ```
 
----
+### 3. Build the dMarket contract
 
-## Development
+Install the Compact toolchain, the dependencies, and compile the contract:
 
-```bash
-# Start development server
-npm run dev
-
-# Or using yarn
-yarn dev
+```sh
+cd contract
+npm install
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+npm run compact
 ```
 
-The app will be available at `http://localhost:5173`
+### 4. Run the Midnight proof server
 
----
+Follow the Midnight [documentation to start the local proof server](https://docs.midnight.network/quickstart/builder-quickstart#set-up-the-proof-server).
 
-## Useful Links
+### 5. Running the GUI with Testnet
 
-- [Midnight Network Documentation](https://docs.midnight.network)
-- [Lace Wallet Documentation](https://docs.midnight.network/getting-started/installation#install-the-lace-midnight-preview-wallet)
-- [React Documentation](https://react.dev)
+- Start the Backend Server
+```sh
+cd gui
+npm install
+npm run build:start
+```
+- Open [http://localhost:8080](http://localhost:8080) in your browser.
+- Ensure you have the [Midnight Lace wallet extension](https://chromewebstore.google.com/detail/lace-beta/hgeekaiplokcnmakghbdfbgnlfheichg) installed, connected, and with available `tDUST` funds.
+
+## Tests & verification
+
+- Contract/unit tests: see `contract/test` for unit and simulation tests (use the contract test runner configured in that folder).
+
+- Running the contract unit tests
+```sh
+cd contract
+npm install
+npm run test --test-timeout=7000
+```
+
+## Demo checklist
+
+1. Start the GUI dev server and open the app.
+2. As Seller: publish a new offer.
+3. As Carrier: place a bid on the offer and accept assignment when selected.
+4. As Buyer: purchase the offer and select the bidder.
+5. As Seller: confirm pickup.
+6. As Carrier: mark item as delivered.
+7. As Buyer: confirm delivery to finalize the order and optionally rate participants.
