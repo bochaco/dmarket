@@ -1,0 +1,77 @@
+module Coins {
+  import CompactStandardLibrary;
+
+  // The locked deposits made by users when offers orders are being fulfilled.
+  export ledger treasury: QualifiedCoinInfo;
+
+  // Domain separator used to mint the shielded tokens
+  export ledger coinDomainSeparator: Bytes<32>;
+
+  // Total number of ever minted shielded coins by this contract
+  export ledger totalMinted: Uint<64>;
+
+  // Counter and nonce are both used to generate a nonce when minting new shielded coins
+  ledger mintCounter: Counter;
+
+  ledger mintNonce: Bytes<32>;
+
+  // Flag to keep track whether there are coins stored on the treasury.
+  ledger treasuryWithCoins: Boolean;
+
+  export circuit initialise(initNonce: Bytes<32>): [] {
+    mintNonce = disclose(initNonce);
+    coinDomainSeparator = pad(32, "dmarket_shielded_coin");
+  }
+
+  // Mint shielded coins to be owned by the caller
+  export circuit mintCoins(): [] {
+    // everyone can mint 10000 shielded tokens to themselves each time.
+    mintCounter.increment(1);
+    const newNonce = evolveNonce(mintCounter, mintNonce);
+    const amount: Uint<64> = 10000;
+
+    totalMinted = totalMinted + amount as Uint<64>;
+    mintToken(
+      coinDomainSeparator,
+      amount,
+      newNonce,
+      left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+
+    mintNonce = newNonce;
+  }
+
+  // Receive a deposit and keep it in this contract's teasury
+  export circuit receiveDeposit(coinInfo: CoinInfo): [] {
+    // receive only dMarket color coins
+    const myCoinColor = tokenType(coinDomainSeparator, disclose(kernel.self()));
+    assert(coinInfo.color == myCoinColor, "Only dMarket coins can be used for payments");
+
+    receive(disclose(coinInfo));
+    const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
+    if (!treasuryWithCoins) {
+       treasury.writeCoin(disclose(coinInfo), me);
+       treasuryWithCoins = true;
+    } else {
+       const mergedCoin = mergeCoinImmediate(treasury, disclose(coinInfo));
+       treasury.writeCoin(disclose(mergedCoin), me);
+    }
+  }
+
+  // Send a payment to the given PK and amount
+  export circuit sendPayment(to: ZswapCoinPublicKey, amount: Uint<128>): [] {
+    const wallet = left<ZswapCoinPublicKey, ContractAddress>(to);
+    _sendPayment(wallet, amount);
+  }
+
+  export circuit _sendPayment(to: Either<ZswapCoinPublicKey, ContractAddress>, amount: Uint<128>): [] {
+    const sendResult = send(treasury, to, disclose(amount));
+    assert(sendResult.sent.value == amount, "Failed to send payment");
+    const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
+    if (sendResult.change.is_some) {
+       treasury.writeCoin(sendResult.change.value, me);
+    } else {
+       treasuryWithCoins = false;
+       treasury.resetToDefault();
+    }
+  }
+}

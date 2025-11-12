@@ -78,6 +78,8 @@ module Types {
   export struct PurchaseDetails {
     // ID of the buyer
     buyerId: Bytes<32>,
+    // Wallet of the buyer in case a refund is made.
+    refundWallet: ZswapCoinPublicKey,
     // Selected carrier for delivery
     selectedCarrierId: Bytes<32>,
     // Delivery fee as offered by the selected carrier's bid

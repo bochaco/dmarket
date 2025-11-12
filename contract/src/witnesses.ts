@@ -9,7 +9,7 @@ export type DMarketPrivateState = {
     publicKey: string;
   };
   readonly encrypt: (data: string, encryptionPk: string) => string;
-  readonly decrypt: (cipher: string) => string;
+  readonly decrypt: (ciphertext: string) => string;
 };
 
 export const createDMarketPrivateState = (
@@ -42,7 +42,7 @@ export const createDMarketPrivateState = (
     },
     encrypt: (data: string, encryptionPk: string) =>
       encryptData(data, encryptionPk),
-    decrypt: (cipher: string) => decryptData(cipher, privateKeyPem),
+    decrypt: (ciphertext: string) => decryptData(ciphertext, privateKeyPem),
   };
 };
 
@@ -59,8 +59,8 @@ export const witnesses = {
     encryptionPk: string,
   ): [DMarketPrivateState, string] => {
     if (data.length > 0) {
-      const cipher = encryptData(data, encryptionPk);
-      return [privateState, cipher];
+      const ciphertext = encryptData(data, encryptionPk);
+      return [privateState, ciphertext];
     } else {
       return [privateState, ""];
     }
@@ -76,10 +76,10 @@ const encryptData = (data: string, encryptionPk: string): string => {
   return forge.util.encode64(encryptedMessage);
 };
 
-const decryptData = (cipher: string, privateKey: string): string => {
+const decryptData = (ciphertext: string, privateKey: string): string => {
   const deserializedPrivateKey = forge.pki.privateKeyFromPem(privateKey);
   const decryptedMessage = deserializedPrivateKey.decrypt(
-    forge.util.decode64(cipher),
+    forge.util.decode64(ciphertext),
     "RSAES-PKCS1-V1_5",
   );
   return decryptedMessage.toString();

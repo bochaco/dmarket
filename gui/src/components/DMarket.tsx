@@ -262,6 +262,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
     <div className="bg-brand-background min-h-screen text-brand-text-primary font-sans">
       <Header
         currentRole={currentRole}
+        userName={userName}
         contractAddress={contractAddress}
         setCurrentRole={setCurrentRole}
         disconnectContract={handleDisconnect}

@@ -56,7 +56,7 @@ export interface DeployedDMarketAPI {
 
   mintCoins: () => Promise<void>;
   offerItem: (id: Uint8Array, price: bigint, itemMeta: string, sellerMeta: string) => Promise<Offer>;
-  decrypt: (cipher: string) => string;
+  decrypt: (ciphertext: string) => string;
   setCarrierBid: (offerId: string, fee: bigint, carrierMeta: string) => Promise<void>;
   purchaseItem: (offerId: string, carrierId: string, totalAmount: bigint, deliveryAddress: string) => Promise<void>;
   itemPickedUp: (offerId: string, depositAmount: bigint, eta: bigint | null) => Promise<void>;
@@ -208,9 +208,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
     return txData.private.result;
   }
 
-  decrypt(cipher: string): string {
-    this.logger?.info(`decrypting data: ${cipher}`);
-    return this.deployedContract.deployTxData.private.initialPrivateState.decrypt(cipher);
+  decrypt(ciphertext: string): string {
+    this.logger?.info(`decrypting data: ${ciphertext}`);
+    return this.deployedContract.deployTxData.private.initialPrivateState.decrypt(ciphertext);
   }
 
   async setCarrierBid(offerId: string, fee: bigint, carrierMeta: string): Promise<void> {

@@ -11,7 +11,7 @@ import {
   randomRatingNumber,
   randomCoinPublicKeyHex,
 } from "./utils.js";
-import { createCoinInfo } from "@midnight-ntwrk/ledger";
+import { createCoinInfo, encodeCoinPublicKey } from "@midnight-ntwrk/ledger";
 import {
   Offer,
   OfferState,
@@ -83,6 +83,7 @@ const buildUpdatedOffer = (
 ): Offer => {
   const purchaseDetails: PurchaseDetails = {
     buyerId: users.buyerId,
+    refundWallet: { bytes: encodeCoinPublicKey(users.buyerPk) },
     selectedCarrierId: users.carrierId,
     carrierFee: fee,
     deliveryAddress: "",
@@ -195,13 +196,13 @@ describe("dMarket smart contract", () => {
     expect(sellerSecretKey).not.toEqual(buyerSecretKey);
 
     const plainText = "Hello Midnight World!";
-    const cipher = simulator.circuitContext.currentPrivateState.encrypt(
+    const ciphertext = simulator.circuitContext.currentPrivateState.encrypt(
       plainText,
       sellerEncryptionKeyPair.publicKey,
     );
-    expect(plainText).not.toEqual(cipher);
+    expect(plainText).not.toEqual(ciphertext);
     const decrypted =
-      simulator.circuitContext.currentPrivateState.decrypt(cipher);
+      simulator.circuitContext.currentPrivateState.decrypt(ciphertext);
     expect(plainText).toEqual(decrypted);
   });
 
@@ -557,7 +558,7 @@ describe("dMarket smart contract", () => {
 
     // Regardless the dispute resolution type, the treasury should be now empty,
     // all locked funds should have been sent to the corresponding parties.
-    // TODO!!!: expect(simulator.getLedger().treasury.value).toEqual(0n);
+    expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
   it("users set rating after purchased is completed", () => {

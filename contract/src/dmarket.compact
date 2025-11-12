@@ -6,6 +6,10 @@ import "./Types";
 
 export { Offer, Carrier, Seller, OfferState, PurchaseDetails };
 
+import "./Coins";
+
+export { mintCoins, treasury, totalMinted, coinDomainSeparator };
+
 import "./Utils" prefix Utils_;
 
 export { Utils_genBuyerId, Utils_genCarrierId, Utils_genSellerId, Utils_genOfferId };
@@ -43,23 +47,6 @@ export ledger offers: Map<Bytes<32>, Offer>;
 // item and their bidding fee price.
 export ledger carrierBids: Map<Bytes<32>, Map<Bytes<32>, Uint<128>>>;
 
-// The locked deposits made by users when offers orders are being fulfilled.
-export ledger treasury: QualifiedCoinInfo;
-
-// Flag to keep track whether there are coins stored on the treasury.
-ledger treasuryWithCoins: Boolean;
-
-// Domain separator used to mint the shielded tokens
-export ledger coinDomainSeparator: Bytes<32>;
-
-// Counter and nonce are both used to generate a nonce when minting new shielded coins
-export ledger mintCounter: Counter;
-
-export ledger mintNonce: Bytes<32>;
-
-// Total number of ever minted shielded coins by this contract
-export ledger totalMinted: Uint<64>;
-
 /**
  * @witness secretKey
  * @description A private per-user nonce used in deriving the shielded user identifiers.
@@ -77,25 +64,7 @@ witness encrypt(data: Opaque<'string'>, encryptionPk: Opaque<'string'>): Opaque<
 // Construction circuit, where coin domain separator and color are defined.
 // An initial nonce is provided which is then to generate new nonces for coin minting.
 constructor(initNonce: Bytes<32>) {
-  mintNonce = disclose(initNonce);
-  coinDomainSeparator = pad(32, "dmarket_shielded_coin");
-}
-
-// Mint shielded coins to be owned by the caller
-export circuit mintCoins(): [] {
-  // everyone can mint 10000 shielded tokens to themselves each time.
-  mintCounter.increment(1);
-  const newNonce = evolveNonce(mintCounter, mintNonce);
-  const amount: Uint<64> = 10000;
-
-  totalMinted = totalMinted + amount as Uint<64>;
-  mintToken(
-    coinDomainSeparator,
-    amount,
-    newNonce,
-    left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
-
-  mintNonce = newNonce;
+  initialise(initNonce);
 }
 
 // Creates a new public offer for a given item.
@@ -192,6 +161,7 @@ export circuit purchaseItem(
   const purchaseDetails =
                 some<PurchaseDetails>(
                   PurchaseDetails { buyerId: buyerId,
+                                    refundWallet: ownPublicKey(),
                                     selectedCarrierId: dCarrierId,
                                     carrierFee: fee,
                                     deliveryAddress: disclose(encrypt(deliveryAddress, encryptionPk)) });
@@ -208,7 +178,7 @@ export circuit itemPickedUp(offerId: Bytes<32>, coinInfo: CoinInfo, eta: Maybe<U
   const offer = checkOfferState(offerId, OfferState.Purchased);
   assert(Utils_isCallerTheCarrier(offer, secretKey()), "Only the selected carrier can pick this item up for delivery");
 
-  // deposit according to price and carrier fee
+  // deposit should be equal to the amount deposited by the buyer, i.e. item's price + delviery fee
   const fee = offer.purchaseDetails.value.carrierFee;
   assert(coinInfo.value == offer.price + fee, "Deposit amount must be equal to the item price plus the carrier fee");
   receiveDeposit(coinInfo);
@@ -270,12 +240,19 @@ export circuit disputeItem(offerId: Bytes<32>): [] {
 }
 
 // The seller resolves a dispute.
+// Currently this only supports a resolution where the carrier is punished and the buyer refunded.
 // OfferState: Dispute => Completed
 export circuit resolveDispute(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Dispute);
   assert(Utils_isCallerTheSeller(offer, secretKey()), "Only the seller can resolve a dispute");
 
-  // TODO: relese deposits and apply confiscations accordingly
+  // TODO: relese deposits and apply confiscations according to different resolution types.
+  // Currently, just as a demonstration of one type of resolution action to be taken by this circuit,
+  // we refund the buyer plus the delivery fee deposited by the carrier as a compensation,
+  // and burn the rest of the funds that were deposited by the carrier, which is equal to item's price.
+  const refundAmount = offer.price + 2 * offer.purchaseDetails.value.carrierFee as Uint<128>;
+  sendPayment(offer.purchaseDetails.value.refundWallet, refundAmount);
+  _sendPayment(burnAddress(), offer.price);
 
   setOfferState(offer, OfferState.Completed);
 }
@@ -381,35 +358,4 @@ export circuit checkOfferState(offerId: Bytes<32>, expectedState: OfferState): O
 circuit setOfferState(offer: Offer, newState: OfferState): [] {
   const updatedOffer = Offer { ...offer, state: newState };
   offers.insert(offer.id, updatedOffer);
-}
-
-// Receive a deposit and keep it in this contract's teasury
-circuit receiveDeposit(coinInfo: CoinInfo): [] {
-  // receive only dMarket color coins
-  const myCoinColor = tokenType(coinDomainSeparator, disclose(kernel.self()));
-  assert(coinInfo.color == myCoinColor, "Only dMarket coins can be used for payments");
-
-  receive(disclose(coinInfo));
-  const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
-  if (!treasuryWithCoins) {
-     treasury.writeCoin(disclose(coinInfo), me);
-     treasuryWithCoins = true;
-  } else {
-     const mergedCoin = mergeCoinImmediate(treasury, disclose(coinInfo));
-     treasury.writeCoin(disclose(mergedCoin), me);
-  }
-}
-
-// Send a payment to the given PK and amount
-circuit sendPayment(to: ZswapCoinPublicKey, amount: Uint<128>): [] {
-  const wallet = left<ZswapCoinPublicKey, ContractAddress>(to);
-  const sendResult = send(treasury, wallet, disclose(amount));
-  assert(sendResult.sent.value == amount, "Failed to send payment");
-  const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
-  if (sendResult.change.is_some) {
-     treasury.writeCoin(sendResult.change.value, me);
-  } else {
-     treasuryWithCoins = false;
-     treasury.resetToDefault();
-  }
 }
