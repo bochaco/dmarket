@@ -32,6 +32,7 @@ export { Utils_genBuyerId, Utils_genCarrierId, Utils_genSellerId, Utils_genOffer
 * - Allow carriers to provide details of different delivery options, with different destination areas
 * and/or distances, as part of the bidding process.
 * - Allow to store the type of dispute and type of resolution in the ledger.
+* - Allow sellers to pay for all or part of the carrier's fee
 **/
 
 // Maps carriers IDs to their registered information.
