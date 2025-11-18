@@ -1,17 +1,19 @@
-# Decentralized Escrow Marketplace (dMarket)
+# Decentralised Escrow Marketplace (dMarket)
 
 [![React 19.x](https://img.shields.io/badge/React-18.x-blue.svg)](https://react.dev)
 [![TypeScript 5.x](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org)
 
 ## Summary
 
-dMarket is a privacy-aware decentralized marketplace (dApp) that implements a three-party escrow flow (Seller, Carrier, Buyer) with secure handoff, dispute resolution, and selective disclosure. It demonstrates how Midnight-native privacy and ZK tooling can be combined with an intuitive web UI to create trustworthy, user-friendly commerce workflows that lowers logistics and selling costs.
+dMarket is a privacy-aware decentralised marketplace (dApp) that implements a three-party escrow flow (Seller, Carrier, Buyer) with secure handoff, dispute resolution, and selective disclosure. It demonstrates how Midnight-native privacy and ZK tooling can be combined with an intuitive web UI to create trustworthy, user-friendly commerce workflows that lowers logistics and selling costs.
+
+<img src="screenshot.png" />
 
 ## Core idea and problem solved
 
 Many physical-good marketplaces suffer from trust, logistics, and dispute risks: buyers worry about receiving items, sellers worry about payment, and carriers need guarantees for delivery payment. dMarket solves this with a coordinated escrow + carrier-commitment flow where funds and reputations are protected, on-chain, and a secure handoff verifies physical delivery.
 
-Beyond trust and dispute reduction, dMarket lowers the cost of selling by removing dependency on centralized marketplace intermediaries that typically charge platform usage fees and commissions, which can reach as high as 15% in monopolistic markets. By enabling direct buyer–seller–carrier coordination and on-chain or Midnight-managed settlement, sellers keep more margin or can pass savings to buyers.
+Beyond trust and dispute reduction, dMarket lowers the cost of selling by removing dependency on centralised marketplace intermediaries that typically charge platform usage fees and commissions, which can reach as high as 15% in monopolistic markets. By enabling direct buyer–seller–carrier coordination and on-chain or Midnight-managed settlement, sellers keep more margin or can pass savings to buyers.
 
 The platform also democratises access to carriers and couriers: independent drivers, local couriers, and small logistics providers can bid alongside larger carriers, making delivery services available to sellers of all product types and sizes while fostering competition that lowers logistics costs.
 
@@ -21,7 +23,7 @@ When an order is placed and a carrier is selected, the buyer's delivery address 
 
 ## Ratings & reputation — building trust
 
-Ratings and reputation are a core security and trust mechanism in dMarket. After an order completes (or is auto-finalized), Buyer, Seller, and Carrier are prompted to rate each other. Key properties:
+Ratings and reputation are a core security and trust mechanism in dMarket. After an order completes (or is auto-finalised), Buyer, Seller, and Carrier are prompted to rate each other. Key properties:
 
 - 5-star mutual ratings: participants rate one another on a 1–5 star scale (in future versions with optional short feedback).
 - Reputation impact: ratings update participant reputation scores which are visible in profiles and can be used to sort carrier bids and seller listings.
@@ -78,8 +80,8 @@ Below is a concise mapping to help judges score the project across the core doma
 - Business Development & Viability
   - Target audience: peer-to-peer sellers and local delivery networks.
   - Monetization paths: marketplace fees, premium carrier subscriptions, or escrow service fees.
-  - Seller cost savings: dMarket minimizes dependence on centralized platform commissions, which can reach as high as 15% in monopolistic markets, enabling sellers to maintain higher profit margins or provide lower prices for buyers.
-  - Democratized carrier access: the carrier bidding model opens delivery to independent couriers and small logistics providers as well as large firms, expanding coverage and lowering logistics costs through competition.
+  - Seller cost savings: dMarket minimizes dependence on centralised platform commissions, which can reach as high as 15% in monopolistic markets, enabling sellers to maintain higher profit margins or provide lower prices for buyers.
+  - Democratised carrier access: the carrier bidding model opens delivery to independent couriers and small logistics providers as well as large firms, expanding coverage and lowering logistics costs through competition.
   - Scaling: off-chain order/book management with on-chain settlement patterns keeps per-order cost low while preserving key guarantees.
 
 ## Quick architecture / where to look in the repo
