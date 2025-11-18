@@ -1,6 +1,6 @@
 # Decentralised Escrow Marketplace (dMarket)
 
-[![React 19.x](https://img.shields.io/badge/React-18.x-blue.svg)](https://react.dev)
+[![React 19.x](https://img.shields.io/badge/React-19.x-blue.svg)](https://react.dev)
 [![TypeScript 5.x](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org)
 
 ## Index
