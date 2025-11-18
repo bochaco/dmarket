@@ -3,6 +3,21 @@
 [![React 19.x](https://img.shields.io/badge/React-18.x-blue.svg)](https://react.dev)
 [![TypeScript 5.x](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org)
 
+## Index
+
+- [Summary](#summary)
+- [Core idea and problem solved](#core-idea-and-problem-solved)
+- [Privacy & selective disclosure of delivery data](#privacy--selective-disclosure-of-delivery-data)
+- [Ratings & reputation — building trust](#ratings--reputation--building-trust)
+- [Main end-to-end (E2E) flow — primary demo use case](#main-end-to-end-e2e-flow--primary-demo-use-case)
+- [How dMarket maps to the Midnight Summit 2025 Hackathon judging rubric](#how-dmarket-maps-to-the-midnight-summit-2025-hackathon-judging-rubric)
+- [Quick architecture / where to look in the repo](#quick-architecture--where-to-look-in-the-repo)
+- [Getting started (local demo)](#getting-started-local-demo)
+- [Tests & verification](#tests--verification)
+- [Demo checklist](#demo-checklist)
+- [Current limitations & planned next steps](#current-limitations--planned-next-steps)
+- [Planned next steps (checklist)](#planned-next-steps-checklist)
+
 ## Summary
 
 dMarket is a privacy-aware decentralised marketplace (dApp) that implements a three-party escrow flow (Seller, Carrier, Buyer) with secure handoff, dispute resolution, and selective disclosure. It demonstrates how Midnight-native privacy and ZK tooling can be combined with an intuitive web UI to create trustworthy, user-friendly commerce workflows that lowers logistics and selling costs.
