@@ -57,18 +57,22 @@ module Coins {
     }
   }
 
-  // Send a payment to the given PK and amount
-  export circuit sendPayment(to: ZswapCoinPublicKey, amount: Uint<128>): [] {
-    const wallet = left<ZswapCoinPublicKey, ContractAddress>(to);
-    _sendPayment(wallet, amount);
-  }
-
-  export circuit _sendPayment(to: Either<ZswapCoinPublicKey, ContractAddress>, amount: Uint<128>): [] {
+  // Send a payment to the given recipient and amount, then to a second recipient and amount.
+  export circuit sendPayments(
+                   to: Either<ZswapCoinPublicKey, ContractAddress>,
+                   amount: Uint<128>,
+                   thenTo: Either<ZswapCoinPublicKey, ContractAddress>,
+                   thenAmount: Uint<128>
+                   ): [] {
     const sendResult = send(treasury, to, disclose(amount));
     assert(sendResult.sent.value == amount, "Failed to send payment");
-    const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
-    if (sendResult.change.is_some) {
-       treasury.writeCoin(sendResult.change.value, me);
+    assert(sendResult.change.is_some, "Treasury is unexpectedly out of funds");
+
+    const secondSendResult = sendImmediate(sendResult.change.value, thenTo, disclose(thenAmount));
+    assert(secondSendResult.sent.value == thenAmount, "Failed to send immediate payment");
+    if (secondSendResult.change.is_some) {
+       const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
+       treasury.writeCoin(secondSendResult.change.value, me);
     } else {
        treasuryWithCoins = false;
        treasury.resetToDefault();

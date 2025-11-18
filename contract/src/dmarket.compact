@@ -217,15 +217,14 @@ export circuit confirmDelivered(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Delivered);
   assert(Utils_isCallerTheBuyer(offer, secretKey()), "Only the buyer can confirm the item has been delivered");
 
-  // release deposits to carrier, plus the owned carrier fee
+  // release payment to seller, deposits to carrier, plus the owned carrier fee
   const fee = offer.purchaseDetails.value.carrierFee;
   const amount = offer.price + fee + fee;
   const carrier = carriers.lookup(offer.purchaseDetails.value.selectedCarrierId);
-  sendPayment(carrier.wallet, amount as Uint<128>);
-
-  // release deposits to seller
   const seller = sellers.lookup(offer.seller);
-  sendPayment(seller.wallet, offer.price);
+  const carrierWallet = left<ZswapCoinPublicKey, ContractAddress>(carrier.wallet);
+  const sellerWallet = left<ZswapCoinPublicKey, ContractAddress>(seller.wallet);
+  sendPayments(carrierWallet, amount as Uint<128>, sellerWallet, offer.price);
 
   setOfferState(offer, OfferState.Completed);
 }
@@ -251,9 +250,11 @@ export circuit resolveDispute(offerId: Bytes<32>): [] {
   // Currently, just as a demonstration of one type of resolution action to be taken by this circuit,
   // we refund the buyer plus the delivery fee deposited by the carrier as a compensation,
   // and burn the rest of the funds that were deposited by the carrier, which is equal to item's price.
+
   const refundAmount = offer.price + 2 * offer.purchaseDetails.value.carrierFee as Uint<128>;
-  sendPayment(offer.purchaseDetails.value.refundWallet, refundAmount);
-  _sendPayment(burnAddress(), offer.price);
+  const refundWallet =
+                left<ZswapCoinPublicKey, ContractAddress>(offer.purchaseDetails.value.refundWallet);
+  sendPayments(refundWallet, refundAmount, burnAddress(), offer.price);
 
   setOfferState(offer, OfferState.Completed);
 }
