@@ -2,7 +2,7 @@ module Coins {
   import CompactStandardLibrary;
 
   // The locked deposits made by users when offers orders are being fulfilled.
-  export ledger treasury: QualifiedCoinInfo;
+  export ledger treasury: QualifiedShieldedCoinInfo;
 
   // Domain separator used to mint the shielded tokens
   export ledger coinDomainSeparator: Bytes<32>;
@@ -31,7 +31,7 @@ module Coins {
     const amount: Uint<64> = 10000;
 
     totalMinted = totalMinted + amount as Uint<64>;
-    mintToken(
+    mintShieldedToken(
       coinDomainSeparator,
       amount,
       newNonce,
@@ -41,12 +41,12 @@ module Coins {
   }
 
   // Receive a deposit and keep it in this contract's teasury
-  export circuit receiveDeposit(coinInfo: CoinInfo): [] {
+  export circuit receiveDeposit(coinInfo: ShieldedCoinInfo): [] {
     // receive only dMarket color coins
     const myCoinColor = tokenType(coinDomainSeparator, disclose(kernel.self()));
     assert(coinInfo.color == myCoinColor, "Only dMarket coins can be used for payments");
 
-    receive(disclose(coinInfo));
+    receiveShielded(disclose(coinInfo));
     const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());
     if (!treasuryWithCoins) {
        treasury.writeCoin(disclose(coinInfo), me);
@@ -64,11 +64,11 @@ module Coins {
                    thenTo: Either<ZswapCoinPublicKey, ContractAddress>,
                    thenAmount: Uint<128>
                    ): [] {
-    const sendResult = send(treasury, to, disclose(amount));
+    const sendResult = sendShielded(treasury, to, disclose(amount));
     assert(sendResult.sent.value == amount, "Failed to send payment");
     assert(sendResult.change.is_some, "Treasury is unexpectedly out of funds");
 
-    const secondSendResult = sendImmediate(sendResult.change.value, thenTo, disclose(thenAmount));
+    const secondSendResult = sendImmediateShielded(sendResult.change.value, thenTo, disclose(thenAmount));
     assert(secondSendResult.sent.value == thenAmount, "Failed to send immediate payment");
     if (secondSendResult.change.is_some) {
        const me = right<ZswapCoinPublicKey, ContractAddress>(kernel.self());

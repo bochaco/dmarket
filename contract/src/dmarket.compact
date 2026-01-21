@@ -1,4 +1,4 @@
-pragma language_version >= 0.16 && <= 0.18;
+pragma language_version 0.19;
 
 import CompactStandardLibrary;
 
@@ -142,7 +142,7 @@ export circuit setOfferEta(offerId: Bytes<32>, timestamp: Uint<128>): [] {
 export circuit purchaseItem(
                  offerId: Bytes<32>,
                  carrierId: Bytes<32>,
-                 coinInfo: CoinInfo,
+                 coinInfo: ShieldedCoinInfo,
                  deliveryAddress: Opaque<'string'>
                  ): [] {
   const offer = checkOfferState(offerId, OfferState.New);
@@ -175,7 +175,7 @@ export circuit purchaseItem(
 // Item is being picked up by the selected carrier, changing the offer state,
 // and locking the deposit made by the carrier according to the item's price.
 // OfferState: Purchased => PickedUp
-export circuit itemPickedUp(offerId: Bytes<32>, coinInfo: CoinInfo, eta: Maybe<Uint<128>>): [] {
+export circuit itemPickedUp(offerId: Bytes<32>, coinInfo: ShieldedCoinInfo, eta: Maybe<Uint<128>>): [] {
   const offer = checkOfferState(offerId, OfferState.Purchased);
   assert(Utils_isCallerTheCarrier(offer, secretKey()), "Only the selected carrier can pick this item up for delivery");
 
@@ -254,7 +254,7 @@ export circuit resolveDispute(offerId: Bytes<32>): [] {
   const refundAmount = offer.price + 2 * offer.purchaseDetails.value.carrierFee as Uint<128>;
   const refundWallet =
                 left<ZswapCoinPublicKey, ContractAddress>(offer.purchaseDetails.value.refundWallet);
-  sendPayments(refundWallet, refundAmount, burnAddress(), offer.price);
+  sendPayments(refundWallet, refundAmount, shieldedBurnAddress(), offer.price);
 
   setOfferState(offer, OfferState.Completed);
 }

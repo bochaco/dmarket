@@ -1,5 +1,5 @@
 import { WitnessContext } from "@midnight-ntwrk/compact-runtime";
-import { Ledger } from "./managed/dmarket/contract/index.cjs";
+import { Ledger } from "./managed/dmarket/contract/index.js";
 import * as forge from "node-forge";
 
 export type DMarketPrivateState = {
