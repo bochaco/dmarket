@@ -22,6 +22,8 @@
 
 dMarket is a privacy-aware decentralised marketplace (dApp) that implements a three-party escrow flow (Seller, Carrier, Buyer) with secure handoff, dispute resolution, and selective disclosure. It demonstrates how Midnight-native privacy and ZK tooling can be combined with an intuitive web UI to create trustworthy, user-friendly commerce workflows that lowers logistics and selling costs.
 
+**Note:** This project is currently compatible and can be deployed on the **Midnight Preview Network**.
+
 <img src="screenshot.png" />
 
 ## Core idea and problem solved
@@ -112,8 +114,8 @@ Prerequisites
 - [Node.js](https://nodejs.org/) (v18+ recommended)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 - [Docker](https://www.docker.com/) for running the [local proof server](https://docs.midnight.network/quickstart/builder-quickstart#install-docker-desktop) as instructed in the Midnight Network documentation.
-- [Midnight Lace wallet](https://chromewebstore.google.com/detail/lace-beta/hgeekaiplokcnmakghbdfbgnlfheichg) browser extension (for GUI usage).
-- [Compact developer tools](https://docs.midnight.network/blog/compact-developer-tools).
+- [Lace Midnight Preview wallet](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg?hl=en) browser extension (for GUI usage).
+- [Compact developer tools](https://docs.midnight.network/blog/compact-developer-tools). **Note:** this currently requires `compactc` version 0.27 which is not officially released yet, therefore you may need to download and manually install it following the instructions from https://github.com/midnightntwrk/compact/tree/main/prerelease.
 
 Install and run
 
@@ -145,6 +147,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/r
 npm run compact
 ```
 
+**Note:** this currently requires `compactc` version 0.27 which is not officially released yet, therefore you may need to download and manually install it following the instructions from https://github.com/midnightntwrk/compact/tree/main/prerelease.
+
 ### 4. Run the Midnight proof server
 
 Follow the Midnight [documentation to start the local proof server](https://docs.midnight.network/quickstart/builder-quickstart#set-up-the-proof-server).
@@ -158,7 +162,7 @@ npm install
 npm run build:start
 ```
 - Open [http://localhost:8080](http://localhost:8080) in your browser.
-- Ensure you have the [Midnight Lace wallet extension](https://chromewebstore.google.com/detail/lace-beta/hgeekaiplokcnmakghbdfbgnlfheichg) installed, connected, and with available `tDUST` funds.
+- Ensure you have the [Lace Midnight Preview wallet](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg?hl=en) extension installed, connected, and with available `tNIGHT` and `tDUST` funds.
 
 ## Tests & verification
 
