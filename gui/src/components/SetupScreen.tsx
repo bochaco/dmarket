@@ -30,8 +30,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onComplete }) => {
       return;
     }
     // Simple validation for mock address
-    if (contractOption === "existing" && contractAddress.length < 68) {
-      setError("Please enter a valid contract address.");
+    if (contractOption === "existing" && contractAddress.trim().length < 64) {
+      setError("Please enter a valid contract address, length is < 64.");
       return;
     }
 

@@ -14,13 +14,6 @@
 // limitations under the License.
 
 import {
-  type DeployedDMarketAPI,
-  DMarketAPI,
-  type DMarketProviders,
-  type DMarketCircuitKeys,
-} from "../../../api/src/index";
-import { type ContractAddress } from "@midnight-ntwrk/compact-runtime";
-import {
   BehaviorSubject,
   type Observable,
   concatMap,
@@ -37,31 +30,38 @@ import {
 } from "rxjs";
 import { pipe as fnPipe } from "fp-ts/function";
 import { type Logger } from "pino";
-import {
-  type DAppConnectorAPI,
-  type DAppConnectorWalletAPI,
-  type ServiceUriConfig,
-} from "@midnight-ntwrk/dapp-connector-api";
-import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { type BalancedProvingRecipe } from "@midnight-ntwrk/midnight-js-types";
+import { type ShieldedCoinInfo } from "@midnight-ntwrk/ledger-v6";
+import { type DMarketPrivateState } from "../../../contract/src/index";
 import {
-  type BalancedTransaction,
-  type UnbalancedTransaction,
-  createBalancedTx,
-} from "@midnight-ntwrk/midnight-js-types";
+  DMarketAPI,
+  type DMarketCircuitKeys,
+  type DMarketProviders,
+  type DeployedDMarketAPI,
+} from "../../../api/src/index";
+import { inMemoryPrivateStateProvider } from "../inMemoryPrivateState";
 import {
-  type CoinInfo,
-  Transaction,
-  type TransactionId,
-} from "@midnight-ntwrk/ledger";
-import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+  type ContractAddress,
+  fromHex,
+  toHex,
+} from "@midnight-ntwrk/compact-runtime";
 import semver from "semver";
 import {
-  getLedgerNetworkId,
-  getZswapNetworkId,
-} from "@midnight-ntwrk/midnight-js-network-id";
+  FinalizedTransaction,
+  PreBinding,
+  PreProof,
+  SignatureEnabled,
+  Transaction,
+  TransactionId,
+  UnprovenTransaction,
+} from "@midnight-ntwrk/ledger-v6";
+import {
+  ConnectedAPI,
+  type InitialAPI,
+} from "@midnight-ntwrk/dapp-connector-api";
 
 /**
  * A fresh new DMarket deployment instance.
@@ -161,9 +161,7 @@ export interface DeployedDMarketAPIProvider {
  * {@link BrowserDeployedDMarketManager} configures and manages a connection to the Midnight Lace
  * wallet, along with a collection of additional providers that work in a web-browser setting.
  */
-export class BrowserDeployedDMarketManager
-  implements DeployedDMarketAPIProvider
-{
+export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider {
   readonly #DMarketDeploymentsSubject: BehaviorSubject<
     BehaviorSubject<DMarketDeployment>
   >;
@@ -306,52 +304,74 @@ export class BrowserDeployedDMarketManager
 const initializeProviders = async (
   logger: Logger,
 ): Promise<DMarketProviders> => {
-  const { wallet, uris } = await connectToWallet(logger);
-  const walletState = await wallet.state();
-  const zkConfigPath = window.location.origin;
-
-  console.log(`Connecting to wallet with network ID: ${getLedgerNetworkId()}`);
-
+  const networkId = "preview"; //import.meta.env.VITE_NETWORK_ID
+  const connectedAPI = await connectToWallet(logger, networkId);
+  const zkConfigPath = window.location.origin; // '../../../contract/src/managed/DMarket';
+  const keyMaterialProvider = new FetchZkConfigProvider<DMarketCircuitKeys>(
+    zkConfigPath,
+    fetch.bind(window),
+  );
+  const config = await connectedAPI.getConfiguration();
+  const inMemoryDMarketPrivateStateProvider = inMemoryPrivateStateProvider<
+    string,
+    DMarketPrivateState
+  >();
+  const shieldedAddresses = await connectedAPI.getShieldedAddresses();
   return {
-    privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: "DMarket-private-state",
-    }),
-    zkConfigProvider: new FetchZkConfigProvider<DMarketCircuitKeys>(
-      zkConfigPath,
-      fetch.bind(window),
-    ),
-    proofProvider: httpClientProofProvider(uris.proverServerUri),
+    privateStateProvider: inMemoryDMarketPrivateStateProvider,
+    zkConfigProvider: keyMaterialProvider,
+    proofProvider: httpClientProofProvider(config.proverServerUri!),
     publicDataProvider: indexerPublicDataProvider(
-      uris.indexerUri,
-      uris.indexerWsUri,
+      config.indexerUri,
+      config.indexerWsUri,
     ),
     walletProvider: {
-      coinPublicKey: walletState.coinPublicKey,
-      encryptionPublicKey: walletState.encryptionPublicKey,
-      balanceTx(
-        tx: UnbalancedTransaction,
-        newCoins: CoinInfo[],
-      ): Promise<BalancedTransaction> {
-        return wallet
-          .balanceAndProveTransaction(
-            ZswapTransaction.deserialize(
-              tx.serialize(getLedgerNetworkId()),
-              getZswapNetworkId(),
-            ),
-            newCoins,
-          )
-          .then((zswapTx) =>
-            Transaction.deserialize(
-              zswapTx.serialize(getZswapNetworkId()),
-              getLedgerNetworkId(),
-            ),
-          )
-          .then(createBalancedTx);
+      getCoinPublicKey(): string {
+        return shieldedAddresses.shieldedCoinPublicKey;
+      },
+      getEncryptionPublicKey(): string {
+        return shieldedAddresses.shieldedEncryptionPublicKey;
+      },
+      balanceTx: async (
+        tx: UnprovenTransaction,
+        newCoins?: ShieldedCoinInfo[],
+        ttl?: Date,
+      ): Promise<BalancedProvingRecipe> => {
+        try {
+          logger.info(
+            { tx, newCoins, ttl },
+            "Balancing transaction via wallet",
+          );
+          const serializedTx = toHex(tx.serialize());
+          const received =
+            await connectedAPI.balanceUnsealedTransaction(serializedTx);
+          const transaction: Transaction<
+            SignatureEnabled,
+            PreProof,
+            PreBinding
+          > = Transaction.deserialize<SignatureEnabled, PreProof, PreBinding>(
+            "signature",
+            "pre-proof",
+            "pre-binding",
+            fromHex(received.tx),
+          );
+          return {
+            type: "TransactionToProve",
+            transaction: transaction,
+          };
+        } catch (e) {
+          logger.error({ error: e }, "Error balancing transaction via wallet");
+          throw e;
+        }
       },
     },
     midnightProvider: {
-      submitTx(tx: BalancedTransaction): Promise<TransactionId> {
-        return wallet.submitTransaction(tx);
+      submitTx: async (tx: FinalizedTransaction): Promise<TransactionId> => {
+        await connectedAPI.submitTransaction(toHex(tx.serialize()));
+        const txIdentifiers = tx.identifiers();
+        const txId = txIdentifiers[0]; // Return the first transaction ID
+        logger.info({ txIdentifiers }, "Submitted transaction via wallet");
+        return txId;
       },
     },
   };
@@ -360,8 +380,9 @@ const initializeProviders = async (
 /** @internal */
 const connectToWallet = (
   logger: Logger,
-): Promise<{ wallet: DAppConnectorWalletAPI; uris: ServiceUriConfig }> => {
-  const COMPATIBLE_CONNECTOR_API_VERSION = "1.x";
+  networkId: string,
+): Promise<ConnectedAPI> => {
+  const COMPATIBLE_CONNECTOR_API_VERSION = "4.x";
 
   return firstValueFrom(
     fnPipe(
@@ -370,9 +391,7 @@ const connectToWallet = (
       tap((connectorAPI) => {
         logger.info(connectorAPI, "Check for wallet connector API");
       }),
-      filter(
-        (connectorAPI): connectorAPI is DAppConnectorAPI => !!connectorAPI,
-      ),
+      filter((connectorAPI): connectorAPI is InitialAPI => !!connectorAPI),
       concatMap((connectorAPI) =>
         semver.satisfies(
           connectorAPI.apiVersion,
@@ -411,12 +430,11 @@ const connectToWallet = (
             );
           }),
       }),
-      concatMap(async (connectorAPI) => {
-        const isEnabled = await connectorAPI.isEnabled();
-
-        logger.info(isEnabled, "Wallet connector API enabled status");
-
-        return connectorAPI;
+      concatMap(async (initialAPI) => {
+        const connectedAPI = await initialAPI.connect(networkId);
+        const connectionStatus = await connectedAPI.getConnectionStatus();
+        logger.info(connectionStatus, "Wallet connector API enabled status");
+        return connectedAPI;
       }),
       timeout({
         first: 5_000,
@@ -429,27 +447,14 @@ const connectToWallet = (
             );
           }),
       }),
-      concatMap(async (connectorAPI) => ({
-        walletConnectorAPI: await connectorAPI.enable(),
-        connectorAPI,
-      })),
       catchError((error, apis) =>
         error
           ? throwError(() => {
-              logger.error("Unable to enable connector API");
+              logger.error("Unable to enable connector API" + error);
               return new Error("Application is not authorized");
             })
           : apis,
       ),
-      concatMap(async ({ walletConnectorAPI, connectorAPI }) => {
-        const uris = await connectorAPI.serviceUriConfig();
-
-        logger.info(
-          "Connected to wallet connector API and retrieved service configuration",
-        );
-
-        return { wallet: walletConnectorAPI, uris };
-      }),
     ),
   );
 };

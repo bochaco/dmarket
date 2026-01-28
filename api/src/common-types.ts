@@ -22,7 +22,7 @@
 import { type MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 import { type FoundContract } from '@midnight-ntwrk/midnight-js-contracts';
 import type { Carrier, Seller, Offer, DMarketPrivateState, Contract, Witnesses } from '../../contract/src/index';
-import { DomainSeperator } from '@midnight-ntwrk/compact-runtime';
+import { DomainSeparator } from '@midnight-ntwrk/compact-runtime';
 
 export const dMarketPrivateStateKey = 'dMarketPrivateState';
 export type PrivateStateId = typeof dMarketPrivateStateKey;
@@ -75,7 +75,7 @@ export type DMarketDerivedState = {
   readonly sellers: Map<string, Seller>;
   readonly offers: Map<string, Offer>;
   readonly carrierBids: Map<string, Map<string, bigint>>;
-  readonly coinDomainSeparator: DomainSeperator;
+  readonly coinDomainSeparator: DomainSeparator;
   readonly userIdAsSeller: string;
   readonly userIdAsCarrier: string;
   readonly userIdAsBuyer: string;

@@ -19,16 +19,16 @@
  * @packageDocumentation
  */
 
-import contractModule, { Offer, Carrier, Seller } from '../../contract/src/managed/dmarket/contract/index.cjs';
-const { Contract, ledger, pureCircuits } = contractModule;
-
 import {
-  tokenType,
-  type ContractAddress,
-  encodeContractAddress,
-  encodeCoinPublicKey,
-} from '@midnight-ntwrk/compact-runtime';
-import { MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
+  Contract,
+  ledger,
+  pureCircuits,
+  Offer,
+  Carrier,
+  Seller,
+} from '../../contract/src/managed/dmarket/contract/index.js';
+
+import { rawTokenType, type ContractAddress, encodeContractAddress } from '@midnight-ntwrk/compact-runtime';
 import { type Logger } from 'pino';
 import {
   type DMarketDerivedState,
@@ -41,7 +41,7 @@ import { type DMarketPrivateState, createDMarketPrivateState, witnesses } from '
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { combineLatest, map, tap, from, type Observable } from 'rxjs';
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
-import { createCoinInfo, encodeCoinInfo } from '@midnight-ntwrk/ledger';
+import { createShieldedCoinInfo, encodeShieldedCoinInfo } from '@midnight-ntwrk/ledger-v6';
 import * as Rx from 'rxjs';
 
 /** @internal */
@@ -146,8 +146,8 @@ export class DMarketAPI implements DeployedDMarketAPI {
           sellers.set(sellerId, seller);
         }
 
-        const pk = providers.walletProvider.coinPublicKey;
-        const zswapPk = { bytes: MidnightBech32m.parse(pk).data };
+        const pk = providers.walletProvider.getCoinPublicKey();
+        const zswapPk = { bytes: fromHex(pk) };
         const nonce = privateState.secretKey;
         const contractAddr = encodeContractAddress(this.deployedContractAddress);
 
@@ -229,14 +229,14 @@ export class DMarketAPI implements DeployedDMarketAPI {
   async purchaseItem(offerId: string, carrierId: string, totalAmount: bigint, deliveryAddress: string): Promise<void> {
     const contractAddress = this.deployedContract.deployTxData.public.contractAddress;
     const domainSep = (await Rx.firstValueFrom(this.state$)).coinDomainSeparator;
-    const coinColor: string = tokenType(domainSep, contractAddress);
+    const coinColor: string = rawTokenType(domainSep, contractAddress);
 
     this.logger?.info(`purchasing offered item: ${offerId} amount: ${totalAmount}, coinColor: ${coinColor}`);
-    const coinInfo = createCoinInfo(coinColor, totalAmount);
+    const coinInfo = createShieldedCoinInfo(coinColor, totalAmount);
     const txData = await this.deployedContract.callTx.purchaseItem(
       fromHex(offerId),
       fromHex(carrierId),
-      encodeCoinInfo(coinInfo),
+      encodeShieldedCoinInfo(coinInfo),
       deliveryAddress,
     );
     this.logger?.trace({
@@ -251,15 +251,15 @@ export class DMarketAPI implements DeployedDMarketAPI {
   async itemPickedUp(offerId: string, depositAmount: bigint, eta: bigint | null): Promise<void> {
     const contractAddress = this.deployedContract.deployTxData.public.contractAddress;
     const domainSep = (await Rx.firstValueFrom(this.state$)).coinDomainSeparator;
-    const coinColor: string = tokenType(domainSep, contractAddress);
+    const coinColor: string = rawTokenType(domainSep, contractAddress);
 
     this.logger?.info(
       `accepting and picking up purchased item: ${offerId} deposit: ${depositAmount}, coinColor: ${coinColor}`,
     );
-    const coinInfo = createCoinInfo(coinColor, depositAmount);
+    const coinInfo = createShieldedCoinInfo(coinColor, depositAmount);
     const txData = await this.deployedContract.callTx.itemPickedUp(
       fromHex(offerId),
-      encodeCoinInfo(coinInfo),
+      encodeShieldedCoinInfo(coinInfo),
       eta ? { is_some: true, value: eta } : { is_some: false, value: 0n },
     );
     this.logger?.trace({
