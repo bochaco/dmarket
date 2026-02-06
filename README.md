@@ -115,7 +115,7 @@ Prerequisites
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 - [Docker](https://www.docker.com/) for running the [local proof server](https://docs.midnight.network/quickstart/builder-quickstart#install-docker-desktop) as instructed in the Midnight Network documentation.
 - [Lace Midnight Preview wallet](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg?hl=en) browser extension (for GUI usage).
-- [Compact developer tools](https://docs.midnight.network/blog/compact-developer-tools). **Note:** this currently requires `compactc` version 0.27 which is not officially released yet, therefore you may need to download and manually install it following the instructions from https://github.com/midnightntwrk/compact/tree/main/prerelease.
+- [Compact developer tools](https://docs.midnight.network/blog/compact-developer-tools).
 
 Install and run
 
@@ -146,8 +146,6 @@ npm install
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 npm run compact
 ```
-
-**Note:** this currently requires `compactc` version 0.27 which is not officially released yet, therefore you may need to download and manually install it following the instructions from https://github.com/midnightntwrk/compact/tree/main/prerelease.
 
 ### 4. Run the Midnight proof server
 
