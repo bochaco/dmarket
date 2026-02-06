@@ -14,10 +14,8 @@
  */
 
 import type { SigningKey } from "@midnight-ntwrk/compact-runtime";
-import type { ContractAddress } from "@midnight-ntwrk/ledger-v6";
+import type { ContractAddress } from "@midnight-ntwrk/ledger-v7";
 import {
-  type Contract,
-  type PrivateState,
   type PrivateStateId,
   type PrivateStateProvider,
 } from "@midnight-ntwrk/midnight-js-types";
@@ -30,7 +28,7 @@ import {
  */
 export const inMemoryPrivateStateProvider = <
   PSI extends PrivateStateId,
-  PS extends PrivateState<Contract>,
+  PS = unknown,
 >(): PrivateStateProvider<PSI, PS> => {
   const record = new Map<PSI, PS>();
   const signingKeys = {} as Record<ContractAddress, SigningKey>;

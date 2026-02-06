@@ -33,8 +33,7 @@ import { type Logger } from "pino";
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { type BalancedProvingRecipe } from "@midnight-ntwrk/midnight-js-types";
-import { type ShieldedCoinInfo } from "@midnight-ntwrk/ledger-v6";
+import { type ShieldedCoinInfo } from "@midnight-ntwrk/ledger-v7";
 import { type DMarketPrivateState } from "../../../contract/src/index";
 import {
   DMarketAPI,
@@ -51,13 +50,13 @@ import {
 import semver from "semver";
 import {
   FinalizedTransaction,
-  PreBinding,
-  PreProof,
+  Binding,
+  Proof,
   SignatureEnabled,
   Transaction,
   TransactionId,
-  UnprovenTransaction,
-} from "@midnight-ntwrk/ledger-v6";
+} from "@midnight-ntwrk/ledger-v7";
+import { UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
 import {
   ConnectedAPI,
   type InitialAPI,
@@ -320,7 +319,10 @@ const initializeProviders = async (
   return {
     privateStateProvider: inMemoryDMarketPrivateStateProvider,
     zkConfigProvider: keyMaterialProvider,
-    proofProvider: httpClientProofProvider(config.proverServerUri!),
+    proofProvider: httpClientProofProvider(
+      config.proverServerUri!,
+      keyMaterialProvider,
+    ),
     publicDataProvider: indexerPublicDataProvider(
       config.indexerUri,
       config.indexerWsUri,
@@ -333,32 +335,20 @@ const initializeProviders = async (
         return shieldedAddresses.shieldedEncryptionPublicKey;
       },
       balanceTx: async (
-        tx: UnprovenTransaction,
-        newCoins?: ShieldedCoinInfo[],
+        tx: UnboundTransaction,
         ttl?: Date,
-      ): Promise<BalancedProvingRecipe> => {
+      ): Promise<FinalizedTransaction> => {
         try {
-          logger.info(
-            { tx, newCoins, ttl },
-            "Balancing transaction via wallet",
-          );
+          logger.info({ tx, ttl }, "Balancing transaction via wallet");
           const serializedTx = toHex(tx.serialize());
           const received =
             await connectedAPI.balanceUnsealedTransaction(serializedTx);
-          const transaction: Transaction<
-            SignatureEnabled,
-            PreProof,
-            PreBinding
-          > = Transaction.deserialize<SignatureEnabled, PreProof, PreBinding>(
+          return Transaction.deserialize<SignatureEnabled, Proof, Binding>(
             "signature",
-            "pre-proof",
-            "pre-binding",
+            "proof",
+            "binding",
             fromHex(received.tx),
           );
-          return {
-            type: "TransactionToProve",
-            transaction: transaction,
-          };
         } catch (e) {
           logger.error({ error: e }, "Error balancing transaction via wallet");
           throw e;

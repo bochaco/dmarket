@@ -1,4 +1,4 @@
-pragma language_version 0.19;
+pragma language_version >= 0.20.0;
 
 import CompactStandardLibrary;
 
@@ -15,25 +15,30 @@ import "./Utils" prefix Utils_;
 export { Utils_genBuyerId, Utils_genCarrierId, Utils_genSellerId, Utils_genOfferId };
 
 /**
-* @notes:
-* - Contract Address Support: Seller, buyer, and carrier roles do not currently support contract addresses.
-* - Transaction History Storage: While transaction history is currently being stored and kept in
-* the ledger, future versions may implement external storage solutions. Same for items' metadata.
-* - Shielded coins used in dMarket are minted by this same contract, in future version
-* it could be taken out to a separate Coin dedicated contract.
-* - Dispute Initiation: Only buyers have the ability to open disputes at present, but future
-* updates will allow carriers to do the same.
-* - Dispute Resolution: The seller currently acts as the arbitrator for disputes initiated by
-* the buyer. In future versions, selecting an external arbitrator service can be made available.
-*
-* @todo:
-* - Deposits management/distribution for dispute resolutions.
-* - Allow the seller to set the item's pickup location, for carriers to calculate their proposed fee.
-* - Allow carriers to provide details of different delivery options, with different destination areas
-* and/or distances, as part of the bidding process.
-* - Allow to store the type of dispute and type of resolution in the ledger.
-* - Allow sellers to pay for all or part of the carrier's fee
-**/
+ * DMarket Contract — high level notes
+ *
+ * Purpose:
+ * - Implements a privacy-preserving marketplace for physical goods where buyers, sellers
+ *   and carriers interact using shielded coins and obfuscated identifiers.
+ * - Handles publishing offers, carrier bidding, purchase flow, delivery lifecycle, ratings
+ *   and basic dispute resolution.
+ *
+ * Important design points / limitations:
+ * - Roles (seller, buyer, carrier) use shielded/obfuscated identifiers derived from a
+ *   user's public key and a local `secretKey()` witness — contract addresses are not
+ *   supported as role identities today.
+ * - Transaction history and item metadata are stored in the ledger; larger deployments
+ *   may move heavy metadata to external storage and store only references on-chain.
+ * - Shielded coins minted by this contract are used for payments; the minting logic
+ *   currently lives in `Coins.compact` within the same package but could be split out.
+ * - Disputes may only be opened by buyers today; dispute resolution is performed by
+ *   the seller in the current workflow (simple example resolution implemented).
+ *
+ * Future work (non-exhaustive):
+ * - More flexible deposit/fund distribution rules for dispute outcomes.
+ * - Allow carriers to declare alternative delivery options and pricing tiers.
+ * - Enable external arbitrators and richer dispute metadata (reason, resolution type).
+ */
 
 // Maps carriers IDs to their registered information.
 export ledger carriers: Map<Bytes<32>, Carrier>;
@@ -68,8 +73,26 @@ constructor(initNonce: Bytes<32>) {
   initialise(initNonce);
 }
 
-// Creates a new public offer for a given item.
-// OfferState: () => New
+/**
+ * Publish a new `Offer` for an item.
+ *
+ * Effects:
+ * - Derives the `sellerId` from the caller's public key + `secretKey()` witness.
+ * - Creates a `Seller` entry if the calling seller is not already registered.
+ * - Inserts a new `Offer` in `offers` ledger keyed by `offerId`.
+ *
+ * Preconditions:
+ * - There must not already be an offer with the same `offerId`.
+ *
+ * Postconditions:
+ * - The returned `Offer` struct represents the stored offer in `OfferState.New` state.
+ *
+ * Parameters:
+ * - `itemId`: unique item identifier (Bytes<32>).
+ * - `price`: asking price in shielded coin units (Uint<128>).
+ * - `itemMeta`: opaque metadata for the item (e.g. JSON string).
+ * - `sellerMeta`: opaque metadata for the seller (stored disclosed for lookup).
+ */
 export circuit offerItem(
                  itemId: Bytes<32>,
                  price: Uint<128>,
@@ -96,9 +119,21 @@ export circuit offerItem(
   return offer;
 }
 
-// Adds a new carrier fee bid to an already published offer.
-// Buyers will then be able to select a carrier among the bidders when buying the item.
-// OfferState: New => New
+/**
+ * Register or update a carrier's bid (fee) for an existing `Offer`.
+ *
+ * Effects:
+ * - Ensures the `Offer` is in `OfferState.New`.
+ * - Derives `carrierId` from the caller and registers the carrier if new.
+ * - Inserts/updates `carrierBids[offerId][carrierId] = fee`.
+ *
+ * Preconditions:
+ * - `offerId` must reference an existing offer in `New` state.
+ *
+ * Notes:
+ * - `encryptionPk` is disclosed and stored for future delivery address encryption.
+ * - `carrierMeta` is disclosed for off-chain discovery; both are stored disclosed.
+ */
 export circuit setCarrierBid(
                  offerId: Bytes<32>,
                  fee: Uint<128>,
@@ -125,8 +160,16 @@ export circuit setCarrierBid(
   carrierBids.lookup(offer.id).insert(carrierId, disclose(fee));
 }
 
-// Update the estimated time of arrival (ETA) of an offer already in transit.
-// OfferState: InTransit => InTransit
+/**
+ * Update the delivery ETA for an offer currently `InTransit`.
+ *
+ * Preconditions:
+ * - Caller must be the selected carrier for the `offer`.
+ * - The offer must be in `OfferState.InTransit`.
+ *
+ * Effects:
+ * - Updates `offer.deliveryEta` with the disclosed `timestamp` value.
+ */
 export circuit setOfferEta(offerId: Bytes<32>, timestamp: Uint<128>): [] {
   const offer = checkOfferState(offerId, OfferState.InTransit);
   assert(Utils_isCallerTheCarrier(offer, secretKey()), "Only the carrier selected for an offer can set its delivery ETA");
@@ -135,10 +178,24 @@ export circuit setOfferEta(offerId: Bytes<32>, timestamp: Uint<128>): [] {
   offers.insert(offer.id, updatedOffer);
 }
 
-// Purchase the item of a published offer, prodiving the ID of the carrier
-// selected among the current fee bidders. Only the selected carrier can
-// then pick up the item for delivery.
-// OfferState: New => Purchased
+/**
+ * Purchase an `Offer` and select a carrier from the existing bids.
+ *
+ * Preconditions:
+ * - `offer` must be in `OfferState.New`.
+ * - `carrierId` must be one of the bidders for the offer.
+ * - `coinInfo.value` must equal `offer.price + carrierFee` (deposit from buyer).
+ *
+ * Effects:
+ * - Receives/burns/mints shielded `coinInfo` via `receiveDeposit` (escrow behavior).
+ * - Stores `purchaseDetails` in the `Offer` including an encrypted delivery address
+ *   using the carrier's `encryptionPk`.
+ * - Transitions the offer to `OfferState.Purchased` and removes the carrier bids map.
+ *
+ * Parameters:
+ * - `deliveryAddress` is encrypted with the selected carrier's public key using
+ *   the `encrypt` witness before being stored in the ledger.
+ */
 export circuit purchaseItem(
                  offerId: Bytes<32>,
                  carrierId: Bytes<32>,
@@ -172,9 +229,18 @@ export circuit purchaseItem(
   carrierBids.remove(offer.id);
 }
 
-// Item is being picked up by the selected carrier, changing the offer state,
-// and locking the deposit made by the carrier according to the item's price.
-// OfferState: Purchased => PickedUp
+/**
+ * Carrier picks up the item for delivery.
+ *
+ * Preconditions:
+ * - Offer must be `Purchased` and caller must be the selected carrier.
+ * - `coinInfo.value` must equal `offer.price + carrierFee` (carrier posts matching deposit).
+ *
+ * Effects:
+ * - Receives carrier deposit into escrow via `receiveDeposit`.
+ * - Optionally sets `deliveryEta` if provided.
+ * - Transitions the offer to `OfferState.PickedUp`.
+ */
 export circuit itemPickedUp(offerId: Bytes<32>, coinInfo: ShieldedCoinInfo, eta: Maybe<Uint<128>>): [] {
   const offer = checkOfferState(offerId, OfferState.Purchased);
   assert(Utils_isCallerTheCarrier(offer, secretKey()), "Only the selected carrier can pick this item up for delivery");
@@ -191,9 +257,15 @@ export circuit itemPickedUp(offerId: Bytes<32>, coinInfo: ShieldedCoinInfo, eta:
   }
 }
 
-// The seller confirms the carrier has picked the item up for delivery.
-// The seller may request the carrier to proove it's the selected carrier for the offer beforehand.
-// OfferState: PickedUp => InTransit
+/**
+ * Seller confirms the carrier picked up the item; moves to `InTransit`.
+ *
+ * Preconditions:
+ * - Offer must be `PickedUp` and caller must be the seller of the offer.
+ *
+ * Effects:
+ * - Transitions the offer to `OfferState.InTransit`.
+ */
 export circuit confirmItemInTransit(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.PickedUp);
   assert(Utils_isCallerTheSeller(offer, secretKey()), "Only the seller can confirm the item has been picked up for delivery");
@@ -201,9 +273,15 @@ export circuit confirmItemInTransit(offerId: Bytes<32>): [] {
   setOfferState(offer, OfferState.InTransit);
 }
 
-// The carrier declares it has delivered the item to the buyer.
-// The carrier may request the buyer to proove it's the buyer of the offer beforehand.
-// OfferState: InTransit => Delivered
+/**
+ * Carrier marks the offer as `Delivered` once delivery is completed.
+ *
+ * Preconditions:
+ * - Offer must be `InTransit` and caller must be the selected carrier.
+ *
+ * Effects:
+ * - Transitions the offer to `OfferState.Delivered`.
+ */
 export circuit delivered(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.InTransit);
   assert(Utils_isCallerTheCarrier(offer, secretKey()), "Only the carrier can set the item as delivered");
@@ -211,8 +289,20 @@ export circuit delivered(offerId: Bytes<32>): [] {
   setOfferState(offer, OfferState.Delivered);
 }
 
-// The buyer confirms it received the purchased item and no dispute needs to be opened.
-// OfferState: Delivered => Completed
+/**
+ * Buyer confirms successful delivery and triggers final fund distribution.
+ *
+ * Preconditions:
+ * - Offer must be `Delivered` and caller must be the buyer.
+ *
+ * Effects:
+ * - Releases payments: sends the carrier deposit (including fee) and the seller payment.
+ * - Transitions the offer to `OfferState.Completed`.
+ *
+ * Notes:
+ * - The current payment calculation uses `amount = offer.price + fee + fee` where the
+ *   carrier receives both deposits and its fee; see `sendPayments` usage for specifics.
+ */
 export circuit confirmDelivered(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Delivered);
   assert(Utils_isCallerTheBuyer(offer, secretKey()), "Only the buyer can confirm the item has been delivered");
@@ -229,9 +319,18 @@ export circuit confirmDelivered(offerId: Bytes<32>): [] {
   setOfferState(offer, OfferState.Completed);
 }
 
-// The buyer opens a dispute on the item it received.
-// OfferState: Delivered => Dispute
-// TODO: allow to dispute when it was not delivered but intransit
+/**
+ * Buyer opens a dispute about the delivered item.
+ *
+ * Preconditions:
+ * - Offer must be `Delivered` and caller must be the buyer.
+ *
+ * Effects:
+ * - Transitions the offer to `OfferState.Dispute`.
+ *
+ * TODO:
+ * - Allow dispute to be opened when an item is `InTransit` (not yet delivered).
+ */
 export circuit disputeItem(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Delivered);
   assert(Utils_isCallerTheBuyer(offer, secretKey()), "Only the buyer can open a dispute on the item");
@@ -239,9 +338,21 @@ export circuit disputeItem(offerId: Bytes<32>): [] {
   setOfferState(offer, OfferState.Dispute);
 }
 
-// The seller resolves a dispute.
-// Currently this only supports a resolution where the carrier is punished and the buyer refunded.
-// OfferState: Dispute => Completed
+/**
+ * Seller resolves a dispute. Current implementation demonstrates one resolution
+ * type: compensate the buyer and punish the carrier by burning part of their deposit.
+ *
+ * Preconditions:
+ * - Offer must be `Dispute` and caller must be the seller.
+ *
+ * Effects:
+ * - Refunds buyer (buyer refund wallet) and burns a portion of carrier funds as illustrated.
+ * - Transitions the offer to `OfferState.Completed`.
+ *
+ * Notes:
+ * - This is a simplified example. Real-world dispute resolution should handle multiple
+ *   resolution types and configurable confiscation/compensation rules.
+ */
 export circuit resolveDispute(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Dispute);
   assert(Utils_isCallerTheSeller(offer, secretKey()), "Only the seller can resolve a dispute");
@@ -259,8 +370,17 @@ export circuit resolveDispute(offerId: Bytes<32>): [] {
   setOfferState(offer, OfferState.Completed);
 }
 
-// The carrier or buyer of the offer can rate the seller, and only once.
-// OfferState: Completed => Completed
+/**
+ * Submit a rating for the `seller` by either the buyer or the carrier (once each).
+ *
+ * Preconditions:
+ * - Offer must be `Completed`.
+ * - Caller must be either the buyer or the carrier.
+ * - Rating must be in range (0,255].
+ *
+ * Effects:
+ * - Stores revealed rating in the offer's `sellerRatings` array depending on caller role.
+ */
 export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
   assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
@@ -282,8 +402,16 @@ export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
   }
 }
 
-// The buyer or seller of the offer can rate the carrier, and only once.
-// OfferState: Completed => Completed
+/**
+ * Submit a rating for the `carrier` by either the buyer or the seller (once each).
+ *
+ * Preconditions:
+ * - Offer must be `Completed`.
+ * - Caller must be buyer or seller.
+ *
+ * Effects:
+ * - Stores the rating in `carrierRatings` based on caller role.
+ */
 export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
   assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
@@ -305,8 +433,16 @@ export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
   }
 }
 
-// The carrier or seller of the offer can rate the buyer, and only once.
-// OfferState: Completed => Completed
+/**
+ * Submit a rating for the `buyer` by either the carrier or the seller (once each).
+ *
+ * Preconditions:
+ * - Offer must be `Completed`.
+ * - Caller must be seller or carrier.
+ *
+ * Effects:
+ * - Stores the rating in `buyerRatings` based on caller role.
+ */
 export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
   assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
@@ -326,7 +462,13 @@ export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
   }
 }
 
-// Check offer state and return it
+/**
+ * Validate an `Offer` exists and assert it is in `expectedState`.
+ *
+ * Returns the `Offer` if checks pass.
+ *
+ * This helper centralizes common state checks and improves error messages for callers.
+ */
 export circuit checkOfferState(offerId: Bytes<32>, expectedState: OfferState): Offer {
   const dOfferId = disclose(offerId);
   assert(offers.member(dOfferId), "Offer not found");
@@ -356,7 +498,12 @@ export circuit checkOfferState(offerId: Bytes<32>, expectedState: OfferState): O
   return offer;
 }
 
-// Set Offer state
+/**
+ * Internal helper to update an `Offer`'s `state`.
+ *
+ * Notes:
+ * - Accepts the `Offer` struct (already read from ledger) and writes back an updated copy.
+ */
 circuit setOfferState(offer: Offer, newState: OfferState): [] {
   const updatedOffer = Offer { ...offer, state: newState };
   offers.insert(offer.id, updatedOffer);

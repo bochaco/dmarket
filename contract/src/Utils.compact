@@ -43,18 +43,29 @@ module Utils {
   }
 
   /*
-  * Creates a shielded user ID, using the contract address to prevent duplicate commitments among other dMaket contracts.
-  * @param {ZswapCoinPublicKey} pk - The public key of the identity being committed.
-  * @param {Bytes<32>} nonce - A private nonce to scope the commitment, which is chosen and provided by teh user.
-  * @returns {Bytes<32>} The computed user ID.
-  */
+   * Create a shielded user ID.
+   *
+   * Purpose:
+   * - Produces a deterministic, obfuscated identifier derived from the user's public key,
+   *   a private `nonce` (witness) and an `instanceSalt` to scope IDs to this contract instance.
+   * - The `domain` parameter differentiates IDs for sellers/buyers/carriers so they do not collide.
+   *
+   * Parameters:
+   * - `pk`: user's public key for the identity being committed.
+   * - `nonce`: per-user secret provided as a witness to avoid linkability.
+   * - `instanceSalt`: contract instance-specific salt (e.g. `kernel.self().bytes`) to avoid cross-contract collisions.
+   * - `domain`: a 32-byte domain/prefix (e.g. `pad(32, "dmarket_seller_id:")`) to further separate ID namespaces.
+   *
+   * Returns: computed user ID (Bytes<32>), disclosed to allow ledger usage as a map key.
+   */
   export circuit computeUserId(
                    pk: ZswapCoinPublicKey,
                    nonce: Bytes<32>,
                    instanceSalt: Bytes<32>,
                    domain: Bytes<32>
                    ): Bytes<32> {
+    // Use the provided `domain` to produce distinct IDs per role (seller/buyer/carrier).
     return disclose(persistentHash<Vector<4, Bytes<32>>>(
-                      [pk.bytes, nonce, instanceSalt, pad(32, "dmarket_user_id:")]));
+                      [pk.bytes, nonce, instanceSalt, domain]));
   }
 }

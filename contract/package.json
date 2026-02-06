@@ -16,6 +16,7 @@
     "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/dmarket.compact ./dist",
     "ci": "npm run compact && npm run typecheck && npm run lint && npm run build && npm run test",
     "compact": "compact compile src/dmarket.compact ./src/managed/dmarket",
+    "compact-0-27": "../../compactc_v0.27.0-rc.1_x86_64-unknown-linux-musl/compactc ./src/dmarket.compact ./src/managed/dmarket",
     "lint": "eslint src",
     "prepack": "npm build",
     "test": "vitest",
@@ -29,8 +30,8 @@
     "eslint": "^9.25.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.5.1",
-    "globals": "^16.2.0",
+    "globals": "^17.3.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.0"
+    "vitest": "^4.0.18"
   }
 }

@@ -1,7 +1,8 @@
 module Coins {
   import CompactStandardLibrary;
 
-  // The locked deposits made by users when offers orders are being fulfilled.
+  // Escrow ledger holding shielded coin deposits for active offers.
+  // Uses `QualifiedShieldedCoinInfo` to represent the on-ledger aggregated coin.
   export ledger treasury: QualifiedShieldedCoinInfo;
 
   // Domain separator used to mint the shielded tokens
@@ -10,12 +11,12 @@ module Coins {
   // Total number of ever minted shielded coins by this contract
   export ledger totalMinted: Uint<64>;
 
-  // Counter and nonce are both used to generate a nonce when minting new shielded coins
+  // Counter and nonce are used to derive a unique nonce when minting new shielded coins
   ledger mintCounter: Counter;
 
   ledger mintNonce: Bytes<32>;
 
-  // Flag to keep track whether there are coins stored on the treasury.
+  // Flag to track whether `treasury` currently holds any coins.
   ledger treasuryWithCoins: Boolean;
 
   export circuit initialise(initNonce: Bytes<32>): [] {
@@ -23,9 +24,11 @@ module Coins {
     coinDomainSeparator = pad(32, "dmarket_shielded_coin");
   }
 
-  // Mint shielded coins to be owned by the caller
+  // Mint shielded coins to be owned by the caller.
+  // NOTE: this is sample/demo minting logic that grants `10000` tokens per call.
+  // Real deployments should implement stricter minting controls.
   export circuit mintCoins(): [] {
-    // everyone can mint 10000 shielded tokens to themselves each time.
+    // Demo: mint a fixed amount to the caller each invocation.
     mintCounter.increment(1);
     const newNonce = evolveNonce(mintCounter, mintNonce);
     const amount: Uint<64> = 10000;
@@ -40,9 +43,9 @@ module Coins {
     mintNonce = newNonce;
   }
 
-  // Receive a deposit and keep it in this contract's teasury
+  // Receive a shielded deposit and store it in this contract's `treasury` (escrow).
   export circuit receiveDeposit(coinInfo: ShieldedCoinInfo): [] {
-    // receive only dMarket color coins
+    // Accept only shielded coins minted for this dMarket contract (color check).
     const myCoinColor = tokenType(coinDomainSeparator, disclose(kernel.self()));
     assert(coinInfo.color == myCoinColor, "Only dMarket coins can be used for payments");
 
@@ -57,7 +60,10 @@ module Coins {
     }
   }
 
-  // Send a payment to the given recipient and amount, then to a second recipient and amount.
+  // Send two payments in sequence using the treasury as source.
+  // - First sends `amount` to `to`.
+  // - Then sends `thenAmount` to `thenTo` using the change from the first send.
+  // If any change remains after the second send it is stored back in `treasury`.
   export circuit sendPayments(
                    to: Either<ZswapCoinPublicKey, ContractAddress>,
                    amount: Uint<128>,

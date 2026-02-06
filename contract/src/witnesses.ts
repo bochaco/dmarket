@@ -16,7 +16,7 @@ export const createDMarketPrivateState = (
   password: Uint8Array,
 ): DMarketPrivateState => {
   // Generate the SHA-256 hash of the password to generate
-  // the secret witness and encrpytion key pair.
+  // the secret witness and encryption key pair.
   const byteString = forge.util.createBuffer(password.slice().buffer);
   const md = forge.md.sha256.create();
   md.update(byteString.getBytes());
@@ -96,7 +96,9 @@ const generateDeterministicKeyPair = (
   const prng = forge.random.createInstance();
   prng.seedFileSync = () => digest;
 
-  // we use just 1024 bits, larger keys may be required in production to provide more security.
+  // NOTE: This generates a 1024-bit RSA keypair for deterministic test/demo usage.
+  // Production deployments should use a stronger key size (e.g. 2048 or 3072 bits)
+  // according to the project's security requirements.
   const keys = forge.pki.rsa.generateKeyPair({ bits: 1024, e: 0x10001, prng });
   const publicKeyPem = forge.pki.publicKeyToPem(keys.publicKey);
   const privateKeyPem = forge.pki.privateKeyToPem(keys.privateKey);

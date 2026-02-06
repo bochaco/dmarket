@@ -1,8 +1,8 @@
 import { Item, DMarketSimulator } from "./dmarket-simulator.js";
 import { toHex } from "@midnight-ntwrk/midnight-js-utils";
 import {
-  NetworkId,
   setNetworkId,
+  NetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import { describe, it, expect } from "vitest";
 import {
@@ -11,14 +11,17 @@ import {
   randomRatingNumber,
   randomCoinPublicKeyHex,
 } from "./utils.js";
-import { createCoinInfo, encodeCoinPublicKey } from "@midnight-ntwrk/ledger";
 import {
   Offer,
   OfferState,
   PurchaseDetails,
-} from "../managed/dmarket/contract/index.cjs";
+} from "../managed/dmarket/contract/index.js";
+import {
+  createShieldedCoinInfo,
+  encodeCoinPublicKey,
+} from "@midnight-ntwrk/ledger-v7";
 
-setNetworkId(NetworkId.Undeployed);
+setNetworkId("undeployed" as NetworkId);
 
 const genRandomItem = (): Item => {
   const item: Item = {
@@ -116,7 +119,7 @@ const publishOffer = (
   }
 
   simulator.switchUser(users.buyerPwd, users.buyerPk);
-  const coinInfoBuyer = createCoinInfo(
+  const coinInfoBuyer = createShieldedCoinInfo(
     simulator.getCoinColor(),
     item.price + fee,
   );
@@ -127,7 +130,7 @@ const publishOffer = (
   }
 
   simulator.switchUser(users.carrierPwd, users.carrierPk);
-  const coinInfoCarrier = createCoinInfo(
+  const coinInfoCarrier = createShieldedCoinInfo(
     simulator.getCoinColor(),
     item.price + fee,
   );
@@ -265,7 +268,10 @@ describe("dMarket smart contract", () => {
     const item = genRandomItem();
     const fee = randomNumber(10);
     const offer = simulator.offerItem(item, "");
-    const coinInfo = createCoinInfo(simulator.getCoinColor(), item.price + fee);
+    const coinInfo = createShieldedCoinInfo(
+      simulator.getCoinColor(),
+      item.price + fee,
+    );
     expect(() =>
       simulator.purchaseItem(offer.id, randomBytes(32), coinInfo, ""),
     ).toThrow("failed assert: No carriers found for the offer");
@@ -325,15 +331,15 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().treasury.value).toEqual(0n);
     const rightAmount = offer.price + fee;
 
-    const nonNativeCoinInfo = createCoinInfo(
-      `0200${toHex(randomBytes(32))}`,
+    const nonNativeCoinInfo = createShieldedCoinInfo(
+      toHex(randomBytes(32)),
       rightAmount,
     );
     expect(() =>
       simulator.purchaseItem(offer.id, users.carrierId, nonNativeCoinInfo, ""),
     ).toThrow("failed assert: Only dMarket coins can be used for payments");
 
-    const tooLittleCoinInfo = createCoinInfo(
+    const tooLittleCoinInfo = createShieldedCoinInfo(
       simulator.getCoinColor(),
       rightAmount - 1n,
     );
@@ -343,7 +349,7 @@ describe("dMarket smart contract", () => {
       "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
     );
 
-    const tooMuchCoinInfo = createCoinInfo(
+    const tooMuchCoinInfo = createShieldedCoinInfo(
       simulator.getCoinColor(),
       rightAmount + 1n,
     );
@@ -359,7 +365,7 @@ describe("dMarket smart contract", () => {
   it("carrier picks up a purchased item", () => {
     const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Purchased);
-    const coinInfo = createCoinInfo(
+    const coinInfo = createShieldedCoinInfo(
       simulator.getCoinColor(),
       offer.price + fee,
     );
@@ -397,15 +403,15 @@ describe("dMarket smart contract", () => {
     simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(simulator.getLedger().treasury.value).toEqual(offer.price + fee);
 
-    const nonNativeCoinInfo = createCoinInfo(
-      `0200${toHex(randomBytes(32))}`,
+    const nonNativeCoinInfo = createShieldedCoinInfo(
+      toHex(randomBytes(32)),
       rightAmount,
     );
     expect(() =>
       simulator.itemPickedUp(offer.id, nonNativeCoinInfo, null),
     ).toThrow("failed assert: Only dMarket coins can be used for payments");
 
-    const tooLittleCoinInfo = createCoinInfo(
+    const tooLittleCoinInfo = createShieldedCoinInfo(
       simulator.getCoinColor(),
       rightAmount - 1n,
     );
@@ -415,7 +421,7 @@ describe("dMarket smart contract", () => {
       "failed assert: Deposit amount must be equal to the item price plus the carrier fee",
     );
 
-    const tooMuchCoinInfo = createCoinInfo(
+    const tooMuchCoinInfo = createShieldedCoinInfo(
       simulator.getCoinColor(),
       rightAmount + 1n,
     );
@@ -643,7 +649,10 @@ describe("dMarket smart contract", () => {
     const [users, simulator] = randomUsers();
 
     let offer = publishOffer(simulator, users, OfferState.New).offer;
-    const coinInfo = createCoinInfo(simulator.getCoinColor(), offer.price);
+    const coinInfo = createShieldedCoinInfo(
+      simulator.getCoinColor(),
+      offer.price,
+    );
     simulator.switchUser(users.carrierPwd, users.carrierPk);
     expect(() => simulator.itemPickedUp(offer.id, coinInfo, null)).toThrow(
       "failed assert: Item has not been purchased or already picked up",

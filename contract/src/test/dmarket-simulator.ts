@@ -2,28 +2,29 @@ import {
   type CircuitContext,
   QueryContext,
   sampleContractAddress,
-  constructorContext,
+  createConstructorContext,
   emptyZswapLocalState,
-  CoinInfo,
+  ShieldedCoinInfo,
   encodeCoinPublicKey,
   encodeContractAddress,
-  TokenType,
-  tokenType,
+  RawTokenType,
+  rawTokenType,
   ContractAddress,
+  CostModel,
 } from "@midnight-ntwrk/compact-runtime";
 import {
   Contract,
   type Ledger,
   ledger,
   Offer,
-} from "../managed/dmarket/contract/index.cjs";
+} from "../managed/dmarket/contract/index.js";
 import {
   type DMarketPrivateState,
   witnesses,
   createDMarketPrivateState,
 } from "../witnesses.js";
-import { encodeCoinInfo } from "@midnight-ntwrk/ledger";
 import { randomBytes } from "./utils.js";
+import { encodeShieldedCoinInfo } from "@midnight-ntwrk/ledger-v7";
 
 export interface Item {
   id: Uint8Array;
@@ -48,14 +49,14 @@ export class DMarketSimulator {
       currentContractState,
       currentZswapLocalState,
     } = this.contract.initialState(
-      constructorContext(createDMarketPrivateState(password), senderPk),
+      createConstructorContext(createDMarketPrivateState(password), senderPk),
       initNonce,
     );
     this.circuitContext = {
       currentPrivateState,
       currentZswapLocalState,
-      originalState: currentContractState,
-      transactionContext: new QueryContext(
+      costModel: CostModel.initialCostModel(),
+      currentQueryContext: new QueryContext(
         currentContractState.data,
         this.contractAddress,
       ),
@@ -72,11 +73,11 @@ export class DMarketSimulator {
   }
 
   public getLedger(): Ledger {
-    return ledger(this.circuitContext.transactionContext.state);
+    return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public getCoinColor(): TokenType {
-    return tokenType(
+  public getCoinColor(): RawTokenType {
+    return rawTokenType(
       this.getLedger().coinDomainSeparator,
       this.contractAddress,
     );
@@ -134,14 +135,14 @@ export class DMarketSimulator {
   public purchaseItem(
     offerId: Uint8Array,
     carrierId: Uint8Array,
-    coinInfo: CoinInfo,
+    shieldedCoinInfo: ShieldedCoinInfo,
     deliveryAddress: string,
   ): [] {
     const res = this.contract.circuits.purchaseItem(
       this.circuitContext,
       offerId,
       carrierId,
-      encodeCoinInfo(coinInfo),
+      encodeShieldedCoinInfo(shieldedCoinInfo),
       deliveryAddress,
     );
     this.circuitContext = res.context;
@@ -150,13 +151,13 @@ export class DMarketSimulator {
 
   public itemPickedUp(
     offerId: Uint8Array,
-    coinInfo: CoinInfo,
+    shieldedCoinInfo: ShieldedCoinInfo,
     eta: null | bigint,
   ): [] {
     const res = this.contract.circuits.itemPickedUp(
       this.circuitContext,
       offerId,
-      encodeCoinInfo(coinInfo),
+      encodeShieldedCoinInfo(shieldedCoinInfo),
       eta !== null
         ? { is_some: true, value: BigInt(eta) }
         : { is_some: false, value: 0n },

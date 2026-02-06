@@ -19,15 +19,8 @@
  * @packageDocumentation
  */
 
-import {
-  Contract,
-  ledger,
-  pureCircuits,
-  Offer,
-  Carrier,
-  Seller,
-} from '../../contract/src/managed/dmarket/contract/index.js';
-
+import { ledger, pureCircuits, Offer, Carrier, Seller } from '../../contract/src/managed/dmarket/contract/index.js';
+import { CompiledDMarketContractContract } from '../../contract/src/index';
 import { rawTokenType, type ContractAddress, encodeContractAddress } from '@midnight-ntwrk/compact-runtime';
 import { type Logger } from 'pino';
 import {
@@ -37,15 +30,12 @@ import {
   type DeployedDMarketContract,
   dMarketPrivateStateKey,
 } from './common-types.js';
-import { type DMarketPrivateState, createDMarketPrivateState, witnesses } from '../../contract/src/index';
+import { type DMarketPrivateState, createDMarketPrivateState } from '../../contract/src/index';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { combineLatest, map, tap, from, type Observable } from 'rxjs';
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
-import { createShieldedCoinInfo, encodeShieldedCoinInfo } from '@midnight-ntwrk/ledger-v6';
+import { createShieldedCoinInfo, encodeShieldedCoinInfo } from '@midnight-ntwrk/ledger-v7';
 import * as Rx from 'rxjs';
-
-/** @internal */
-const dMarketContractInstance: DMarketContract = new Contract(witnesses);
 
 /**
  * An API for a deployed DMarket.
@@ -393,9 +383,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
   ): Promise<DMarketAPI> {
     logger?.info('deployContract');
 
-    const deployedDMarketContract = await deployContract<typeof dMarketContractInstance>(providers, {
+    const deployedDMarketContract = await deployContract(providers, {
       privateStateId: dMarketPrivateStateKey,
-      contract: dMarketContractInstance,
+      compiledContract: CompiledDMarketContractContract,
       initialPrivateState: DMarketAPI.getPrivateState(providers, password),
       args: [initNonce],
     });
@@ -432,7 +422,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
 
     const deployedDMarketContract = await findDeployedContract<DMarketContract>(providers, {
       contractAddress,
-      contract: dMarketContractInstance,
+      compiledContract: CompiledDMarketContractContract,
       privateStateId: dMarketPrivateStateKey,
       initialPrivateState: DMarketAPI.getPrivateState(providers, password),
     });
