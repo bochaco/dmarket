@@ -24,7 +24,7 @@ dMarket is a privacy-aware decentralised marketplace (dApp) that implements a th
 
 This project is built on the Midnight Network.
 
-**Note:** This project is currently compatible and can be deployed on the **Midnight Preview Network**.
+**Note:** This project is currently compatible and can be deployed on the **Midnight Preprod Network**.
 
 <img src="screenshot.png" />
 
@@ -113,10 +113,10 @@ Below is a concise mapping to help judges score the project across the core doma
 
 Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [Node.js](https://nodejs.org/) (v22+ recommended)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
-- [Docker](https://www.docker.com/) for running the [local proof server](https://docs.midnight.network/quickstart/builder-quickstart#install-docker-desktop) as instructed in the Midnight Network documentation.
-- [Lace Midnight Preview wallet](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg?hl=en) browser extension (for GUI usage).
+- [Docker](https://www.docker.com/) for running the [local proof server](https://docs.midnight.network/getting-started/installation#run-the-proof-server) as instructed in the Midnight Network documentation.
+- [Lace Midnight Preview wallet](https://docs.midnight.network/guides/lace-wallet) browser extension (for GUI usage).
 - [Compact developer tools](https://docs.midnight.network/blog/compact-developer-tools).
 
 Install and run
@@ -140,20 +140,27 @@ npm install
 
 ### 3. Build the dMarket contract
 
-Install the Compact toolchain, the dependencies, and compile the contract:
+Install the Compact toolchain:
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+```
 
+Install the dependencies, and compile the contract:
 ```sh
 cd contract
 npm install
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 npm run compact
 ```
 
 ### 4. Run the Midnight proof server
 
-Follow the Midnight [documentation to start the local proof server](https://docs.midnight.network/quickstart/builder-quickstart#set-up-the-proof-server).
+Follow the Midnight [documentation to start the local proof server](https://docs.midnight.network/getting-started/installation#run-the-proof-server).
 
-### 5. Running the GUI with Testnet
+```sh
+docker run -p 6300:6300 midnightntwrk/proof-server:7.0.0 -- midnight-proof-server -v
+```
+
+### 5. Running the GUI with Midnight Preprod Network
 
 - Start the Backend Server
 ```sh
@@ -162,7 +169,7 @@ npm install
 npm run build:start
 ```
 - Open [http://localhost:8080](http://localhost:8080) in your browser.
-- Ensure you have the [Lace Midnight Preview wallet](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg?hl=en) extension installed, connected, and with available `tNIGHT` and `tDUST` funds.
+- Ensure you have the [Lace Midnight Preview wallet](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg) extension installed, connected, and with available `tNIGHT` and `tDUST` funds. You can get tNIGHT from the [Preprod Faucet](https://faucet.preprod.midnight.network).
 
 ## Tests & verification
 
