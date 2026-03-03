@@ -22,6 +22,8 @@
 
 dMarket is a privacy-aware decentralised marketplace (dApp) that implements a three-party escrow flow (Seller, Carrier, Buyer) with secure handoff, dispute resolution, and selective disclosure. It demonstrates how Midnight-native privacy and ZK tooling can be combined with an intuitive web UI to create trustworthy, user-friendly commerce workflows that lowers logistics and selling costs.
 
+This project is built on the Midnight Network.
+
 **Note:** This project is currently compatible and can be deployed on the **Midnight Preview Network**.
 
 <img src="screenshot.png" />
