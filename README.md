@@ -196,7 +196,7 @@ npm run test --test-timeout=7000
 
 Below are the known limitations and an actionable checklist of planned next steps:
 
-- **Temporarily disabled features ([Lace wallet issue #2179](https://github.com/input-output-hk/lace/issues/2179))**: The following circuits are currently disabled in the contract and API until the wallet issue is resolved: `disputeItem`, `resolveDispute`, `rateSeller`, `rateCarrier`, and `rateBuyer`. This means dispute opening/resolution and post-completion ratings are temporarily unavailable in the live flow.
+- **Temporarily disabled features ([Lace wallet issue #2179](https://github.com/input-output-hk/lace/issues/2179))**: The following circuits are currently disabled in the contract and API until the wallet issue is resolved: `rateSeller`, `rateCarrier`, and `rateBuyer`. This means some post-completion ratings are temporarily unavailable in the live flow.
 - **Contract address support**: Seller, buyer, and carrier roles do not currently accept contract addresses.
 - **Transaction history & metadata**: Transaction history and item metadata are currently stored in the ledger; future versions may use external storage (database, IPFS, Autonomi, or other) for scalability and richer indexing.
 - **Shielded coins**: Shielded coins used in dMarket are minted by the same contract; a future improvement is to separate coin minting into a dedicated Coin contract.

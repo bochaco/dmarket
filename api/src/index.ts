@@ -311,7 +311,6 @@ export class DMarketAPI implements DeployedDMarketAPI {
 
   async disputeItem(offerId: string): Promise<void> {
     this.logger?.info(`opening a dispute for item: ${offerId}`);
-    /* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
     const txData = await this.deployedContract.callTx.disputeItem(fromHex(offerId));
     this.logger?.trace({
       transactionAdded: {
@@ -320,15 +319,10 @@ export class DMarketAPI implements DeployedDMarketAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
-    */
-    this.logger?.warn(
-      'disputeItem is temporarily disabled because it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179',
-    );
   }
 
   async resolveDispute(offerId: string): Promise<void> {
     this.logger?.info(`resolving a dispute for item: ${offerId}`);
-    /* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
     const txData = await this.deployedContract.callTx.resolveDispute(fromHex(offerId));
     this.logger?.trace({
       transactionAdded: {
@@ -337,10 +331,6 @@ export class DMarketAPI implements DeployedDMarketAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
-    */
-    this.logger?.warn(
-      'resolveDispute is temporarily disabled because it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179',
-    );
   }
 
   async rateSeller(offerId: string, rating: bigint): Promise<void> {
