@@ -1,5 +1,4 @@
-
-import { UserRole } from './types';
+import { UserRole } from "./types";
 
 export const USER_ROLES: UserRole[] = [
   UserRole.Buyer,

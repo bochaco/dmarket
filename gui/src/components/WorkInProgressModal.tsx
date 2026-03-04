@@ -1,14 +1,17 @@
-import React, { Dispatch, SetStateAction } from 'react';
+import React, { Dispatch, SetStateAction } from "react";
 
 export interface WorkInProgressInfo {
-  status: 'in-progress' | 'error';
+  status: "in-progress" | "error";
   task: string;
   desc: string;
   onClose: (() => void) | null;
 }
 
-export const handleErrorForRendering = (error: unknown, msg: string): WorkInProgressInfo => {
-  let errorMsg = 'Unknown error. See console logs.';
+export const handleErrorForRendering = (
+  error: unknown,
+  msg: string,
+): WorkInProgressInfo => {
+  let errorMsg = "Unknown error. See console logs.";
   if (error instanceof Error && error.message.length > 0) {
     errorMsg = error.message;
   } else {
@@ -27,7 +30,7 @@ export const handleErrorForRendering = (error: unknown, msg: string): WorkInProg
   }
 
   return {
-    status: 'error',
+    status: "error",
     task: msg,
     desc: errorMsg,
     onClose: () => {},
@@ -39,14 +42,17 @@ interface WorkInProgressModalProps {
   setIsWorking: Dispatch<SetStateAction<WorkInProgressInfo | null>>;
 }
 
-const WorkInProgressModal: React.FC<WorkInProgressModalProps> = ({ isWorking, setIsWorking }) => {
+const WorkInProgressModal: React.FC<WorkInProgressModalProps> = ({
+  isWorking,
+  setIsWorking,
+}) => {
   if (!isWorking) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in p-4">
       <div className="bg-brand-surface rounded-2xl shadow-2xl w-full max-w-sm mx-auto transform transition-all duration-300 scale-95 hover:scale-100 border border-slate-700">
         <div className="p-8 text-center">
-          {isWorking.status === 'in-progress' ? (
+          {isWorking.status === "in-progress" ? (
             <>
               <div className="relative w-20 h-20 mx-auto mb-6">
                 <div className="absolute inset-0 border-4 border-brand-secondary rounded-full animate-spin border-t-transparent"></div>
@@ -77,12 +83,18 @@ const WorkInProgressModal: React.FC<WorkInProgressModalProps> = ({ isWorking, se
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </div>
               <h2 className="text-2xl font-bold text-brand-text-primary">{`${isWorking.task}`}</h2>
               <p className="text-brand-text-secondary mt-2">
-                {`${isWorking.desc}` || 'An unexpected error occurred. Please try again.'}
+                {`${isWorking.desc}` ||
+                  "An unexpected error occurred. Please try again."}
               </p>
               <button
                 onClick={() => {

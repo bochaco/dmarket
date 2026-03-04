@@ -20,7 +20,7 @@ export const logger = pino.pino({
 });
 
 // Ensure that the network IDs are set within the Midnight libraries.
-const networkId = "preview"; //import.meta.env.VITE_NETWORK_ID as NetworkId;
+const networkId = "preprod"; //import.meta.env.VITE_NETWORK_ID as NetworkId;
 setNetworkId(networkId);
 
 const root = ReactDOM.createRoot(rootElement);

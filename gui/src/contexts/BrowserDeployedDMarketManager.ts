@@ -302,7 +302,7 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
 const initializeProviders = async (
   logger: Logger,
 ): Promise<DMarketProviders> => {
-  const networkId = "preview"; //import.meta.env.VITE_NETWORK_ID
+  const networkId = "preprod"; //import.meta.env.VITE_NETWORK_ID
   const connectedAPI = await connectToWallet(logger, networkId);
   const zkConfigPath = window.location.origin; // '../../../contract/src/managed/DMarket';
   const keyMaterialProvider = new FetchZkConfigProvider<DMarketCircuitKeys>(
@@ -367,6 +367,21 @@ const initializeProviders = async (
 };
 
 /** @internal */
+const getFirstMidnightConnector = (): InitialAPI => {
+  const mw = (
+    window as unknown as { midnight?: Record<string, InitialAPI> | undefined }
+  ).midnight;
+  if (!mw || typeof mw !== "object") {
+    throw new Error(
+      "No Midnight wallet extension detected. Install Midnight Lace or another compatible wallet.",
+    );
+  }
+  const first = Object.values(mw)[0];
+  if (!first) throw new Error("Midnight object contains no entries.");
+  return first;
+};
+
+/** @internal */
 const connectToWallet = (
   logger: Logger,
   networkId: string,
@@ -376,7 +391,7 @@ const connectToWallet = (
   return firstValueFrom(
     fnPipe(
       interval(100),
-      map(() => window.midnight?.mnLace),
+      map(() => getFirstMidnightConnector()),
       tap((connectorAPI) => {
         logger.info(connectorAPI, "Check for wallet connector API");
       }),

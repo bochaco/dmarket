@@ -1,23 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 interface RankingInputProps {
   currentRating?: bigint;
   onRate?: (rating: number) => void;
   disabled?: boolean;
   readOnly?: boolean;
-  size?: 'sm' | 'md';
+  size?: "sm" | "md";
 }
 
-const Star: React.FC<{ filled: boolean; onMouseEnter?: () => void; onClick?: () => void; className?: string }> = ({
-  filled,
-  onMouseEnter,
-  onClick,
-  className,
-}) => (
+const Star: React.FC<{
+  filled: boolean;
+  onMouseEnter?: () => void;
+  onClick?: () => void;
+  className?: string;
+}> = ({ filled, onMouseEnter, onClick, className }) => (
   <svg
     onMouseEnter={onMouseEnter}
     onClick={onClick}
-    className={`w-5 h-5 transition-colors duration-200 ${className} ${filled ? 'text-yellow-400' : 'text-slate-600'}`}
+    className={`w-5 h-5 transition-colors duration-200 ${className} ${filled ? "text-yellow-400" : "text-slate-600"}`}
     fill="currentColor"
     viewBox="0 0 20 20"
   >
@@ -30,7 +30,7 @@ const RankingInput: React.FC<RankingInputProps> = ({
   onRate,
   disabled = false,
   readOnly = false,
-  size = 'md',
+  size = "md",
 }) => {
   const [hoverRating, setHoverRating] = useState(0);
   const isInteractive = !disabled && !readOnly && onRate;
@@ -54,8 +54,8 @@ const RankingInput: React.FC<RankingInputProps> = ({
   };
 
   const displayRating = hoverRating || currentRating;
-  const starClassName = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
-  const cursorClassName = isInteractive ? 'cursor-pointer' : 'cursor-default';
+  const starClassName = size === "sm" ? "w-4 h-4" : "w-5 h-5";
+  const cursorClassName = isInteractive ? "cursor-pointer" : "cursor-default";
 
   return (
     <div className="flex items-center" onMouseLeave={handleMouseLeave}>

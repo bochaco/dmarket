@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { useEffect, useState } from 'react';
-import { DMarket } from './components';
-import { useDeployedDMarketContext } from './hooks';
-import { type DMarketDeployment } from './contexts';
-import { type Observable } from 'rxjs';
+import React, { useEffect, useState } from "react";
+import { DMarket } from "./components";
+import { useDeployedDMarketContext } from "./hooks";
+import { type DMarketDeployment } from "./contexts";
+import { type Observable } from "rxjs";
 
 /**
  * The root DMarket application component.
@@ -25,10 +25,12 @@ import { type Observable } from 'rxjs';
  */
 const App: React.FC = () => {
   const dMarketApiProvider = useDeployedDMarketContext();
-  const [dMarketDeployment, setDMarketDeployment] = useState<Observable<DMarketDeployment>>();
+  const [dMarketDeployment, setDMarketDeployment] =
+    useState<Observable<DMarketDeployment>>();
 
   useEffect(() => {
-    const subscription = dMarketApiProvider.dMarketDeployment$.subscribe(setDMarketDeployment);
+    const subscription =
+      dMarketApiProvider.dMarketDeployment$.subscribe(setDMarketDeployment);
     return () => {
       subscription.unsubscribe();
     };

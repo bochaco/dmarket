@@ -13,14 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { type PropsWithChildren, createContext } from 'react';
-import { type DeployedDMarketAPIProvider, BrowserDeployedDMarketManager } from './BrowserDeployedDMarketManager';
-import { type Logger } from 'pino';
+import React, { type PropsWithChildren, createContext } from "react";
+import {
+  type DeployedDMarketAPIProvider,
+  BrowserDeployedDMarketManager,
+} from "./BrowserDeployedDMarketManager";
+import { type Logger } from "pino";
 
 /**
  * Encapsulates a deployed DMarket provider as a context object.
  */
-export const DeployedDMarketContext = createContext<DeployedDMarketAPIProvider | undefined>(undefined);
+export const DeployedDMarketContext = createContext<
+  DeployedDMarketAPIProvider | undefined
+>(undefined);
 
 /**
  * The props required by the {@link DeployedDMarketProvider} component.
@@ -34,8 +39,12 @@ export type DeployedDMarketProviderProps = PropsWithChildren<{
  * A React component that sets a new {@link BrowserDeployedDMarketManager} object as the currently
  * in-scope deployed DMarket provider.
  */
-export const DeployedDMarketProvider: React.FC<Readonly<DeployedDMarketProviderProps>> = ({ logger, children }) => (
-  <DeployedDMarketContext.Provider value={new BrowserDeployedDMarketManager(logger)}>
+export const DeployedDMarketProvider: React.FC<
+  Readonly<DeployedDMarketProviderProps>
+> = ({ logger, children }) => (
+  <DeployedDMarketContext.Provider
+    value={new BrowserDeployedDMarketManager(logger)}
+  >
     {children}
   </DeployedDMarketContext.Provider>
 );
