@@ -331,12 +331,14 @@ export circuit confirmDelivered(offerId: Bytes<32>): [] {
  * TODO:
  * - Allow dispute to be opened when an item is `InTransit` (not yet delivered).
  */
+/* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
 export circuit disputeItem(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Delivered);
   assert(Utils_isCallerTheBuyer(offer, secretKey()), "Only the buyer can open a dispute on the item");
 
   setOfferState(offer, OfferState.Dispute);
 }
+*/
 
 /**
  * Seller resolves a dispute. Current implementation demonstrates one resolution
@@ -353,6 +355,7 @@ export circuit disputeItem(offerId: Bytes<32>): [] {
  * - This is a simplified example. Real-world dispute resolution should handle multiple
  *   resolution types and configurable confiscation/compensation rules.
  */
+/* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
 export circuit resolveDispute(offerId: Bytes<32>): [] {
   const offer = checkOfferState(offerId, OfferState.Dispute);
   assert(Utils_isCallerTheSeller(offer, secretKey()), "Only the seller can resolve a dispute");
@@ -369,6 +372,7 @@ export circuit resolveDispute(offerId: Bytes<32>): [] {
 
   setOfferState(offer, OfferState.Completed);
 }
+*/
 
 /**
  * Submit a rating for the `seller` by either the buyer or the carrier (once each).
@@ -381,6 +385,7 @@ export circuit resolveDispute(offerId: Bytes<32>): [] {
  * Effects:
  * - Stores revealed rating in the offer's `sellerRatings` array depending on caller role.
  */
+/* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
 export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
   assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
@@ -401,6 +406,7 @@ export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
     offers.insert(disclose(offer.id), updatedOffer);
   }
 }
+*/
 
 /**
  * Submit a rating for the `carrier` by either the buyer or the seller (once each).
@@ -412,6 +418,7 @@ export circuit rateSeller(offerId: Bytes<32>, rating: Uint<8>): [] {
  * Effects:
  * - Stores the rating in `carrierRatings` based on caller role.
  */
+/* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
 export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
   assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
@@ -432,6 +439,7 @@ export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
     offers.insert(disclose(offer.id), updatedOffer);
   }
 }
+*/
 
 /**
  * Submit a rating for the `buyer` by either the carrier or the seller (once each).
@@ -443,6 +451,7 @@ export circuit rateCarrier(offerId: Bytes<32>, rating: Uint<8>): [] {
  * Effects:
  * - Stores the rating in `buyerRatings` based on caller role.
  */
+/* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
 export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
   assert(rating > 0, "Rate needs to be greater than 0 and smaller than 256");
   const offer = checkOfferState(offerId, OfferState.Completed);
@@ -461,6 +470,7 @@ export circuit rateBuyer(offerId: Bytes<32>, rating: Uint<8>): [] {
     offers.insert(disclose(offer.id), updatedOffer);
   }
 }
+*/
 
 /**
  * Validate an `Offer` exists and assert it is in `expectedState`.

@@ -311,6 +311,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
 
   async disputeItem(offerId: string): Promise<void> {
     this.logger?.info(`opening a dispute for item: ${offerId}`);
+    /* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
     const txData = await this.deployedContract.callTx.disputeItem(fromHex(offerId));
     this.logger?.trace({
       transactionAdded: {
@@ -319,10 +320,12 @@ export class DMarketAPI implements DeployedDMarketAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
+    */
   }
 
   async resolveDispute(offerId: string): Promise<void> {
     this.logger?.info(`resolving a dispute for item: ${offerId}`);
+    /* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
     const txData = await this.deployedContract.callTx.resolveDispute(fromHex(offerId));
     this.logger?.trace({
       transactionAdded: {
@@ -331,10 +334,12 @@ export class DMarketAPI implements DeployedDMarketAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
+    */
   }
 
   async rateSeller(offerId: string, rating: bigint): Promise<void> {
     this.logger?.info(`ratig seller for item: ${offerId}`);
+    /* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
     const txData = await this.deployedContract.callTx.rateSeller(fromHex(offerId), rating);
     this.logger?.trace({
       transactionAdded: {
@@ -343,10 +348,12 @@ export class DMarketAPI implements DeployedDMarketAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
+    */
   }
 
   async rateCarrier(offerId: string, rating: bigint): Promise<void> {
     this.logger?.info(`ratig carrier for item: ${offerId}`);
+    /* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
     const txData = await this.deployedContract.callTx.rateCarrier(fromHex(offerId), rating);
     this.logger?.trace({
       transactionAdded: {
@@ -355,10 +362,12 @@ export class DMarketAPI implements DeployedDMarketAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
+    */
   }
 
   async rateBuyer(offerId: string, rating: bigint): Promise<void> {
     this.logger?.info(`ratig buyer for item: ${offerId}`);
+    /* FIXME: it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179
     const txData = await this.deployedContract.callTx.rateBuyer(fromHex(offerId), rating);
     this.logger?.trace({
       transactionAdded: {
@@ -367,6 +376,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
+    */
   }
 
   /**
