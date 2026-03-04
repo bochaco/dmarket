@@ -321,6 +321,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
       },
     });
     */
+    this.logger?.warn(
+      'disputeItem is temporarily disabled because it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179',
+    );
   }
 
   async resolveDispute(offerId: string): Promise<void> {
@@ -335,6 +338,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
       },
     });
     */
+    this.logger?.warn(
+      'resolveDispute is temporarily disabled because it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179',
+    );
   }
 
   async rateSeller(offerId: string, rating: bigint): Promise<void> {
@@ -349,6 +355,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
       },
     });
     */
+    this.logger?.warn(
+      'rateSeller is temporarily disabled because it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179',
+    );
   }
 
   async rateCarrier(offerId: string, rating: bigint): Promise<void> {
@@ -363,6 +372,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
       },
     });
     */
+    this.logger?.warn(
+      'rateCarrier is temporarily disabled because it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179',
+    );
   }
 
   async rateBuyer(offerId: string, rating: bigint): Promise<void> {
@@ -377,6 +389,9 @@ export class DMarketAPI implements DeployedDMarketAPI {
       },
     });
     */
+    this.logger?.warn(
+      'rateBuyer is temporarily disabled because it is affected by Lace wallet extension issue https://github.com/input-output-hk/lace/issues/2179',
+    );
   }
 
   /**
