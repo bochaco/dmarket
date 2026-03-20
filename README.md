@@ -116,7 +116,7 @@ Prerequisites
 - [Node.js](https://nodejs.org/) (v22+ recommended)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 - [Docker](https://www.docker.com/) for running the [local proof server](https://docs.midnight.network/getting-started/installation#run-the-proof-server) as instructed in the Midnight Network documentation.
-- [Lace Midnight Preview wallet](https://docs.midnight.network/guides/lace-wallet) browser extension (for GUI usage).
+- [Lace wallet](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) browser extension (for GUI usage).
 - [Compact developer tools](https://docs.midnight.network/blog/compact-developer-tools).
 
 Install and run
@@ -141,11 +141,13 @@ npm install
 ### 3. Build the dMarket contract
 
 Install the Compact toolchain:
+
 ```sh
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 ```
 
 Install the dependencies, and compile the contract:
+
 ```sh
 cd contract
 npm install
@@ -163,19 +165,22 @@ docker run -p 6300:6300 midnightntwrk/proof-server:7.0.0 -- midnight-proof-serve
 ### 5. Running the GUI with Midnight Preprod Network
 
 - Start the Backend Server
+
 ```sh
 cd gui
 npm install
 npm run build:start
 ```
+
 - Open [http://localhost:8080](http://localhost:8080) in your browser.
-- Ensure you have the [Lace Midnight Preview wallet](https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg) extension installed, connected, and with available `tNIGHT` and `tDUST` funds. You can get tNIGHT from the [Preprod Faucet](https://faucet.preprod.midnight.network).
+- Ensure you have the [Lace wallet](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) extension installed, connected, and with available `tNIGHT` and `tDUST` funds. You can get tNIGHT from the [Preprod Faucet](https://faucet.preprod.midnight.network).
 
 ## Tests & verification
 
 - Contract/unit tests: see `contract/test` for unit and simulation tests (use the contract test runner configured in that folder).
 
 - Running the contract unit tests
+
 ```sh
 cd contract
 npm install
