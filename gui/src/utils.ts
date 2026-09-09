@@ -46,7 +46,7 @@ export const updatedOffers = (
   dMarketApi: DeployedDMarketAPI | undefined,
   updatedUsers: User[],
 ): Offer[] => {
-  let updatedOffers = [];
+  const updatedOffers = [];
   for (const [id, offer] of dMarketState.offers) {
     const offeredItem = deserializeItemMetadataJson(offer.meta);
     const sellerId = toHex(offer.seller);
@@ -94,7 +94,7 @@ export const updatedOffers = (
           for (const rating of offer.buyerRatings) {
             buyer.ratings = calculateRatingAverage(buyer.ratings, rating);
           }
-          let b = updatedUsers.find((u) => u.id === buyerId);
+          const b = updatedUsers.find((u) => u.id === buyerId);
           if (b) {
             b.ratings = buyer.ratings;
           } else {
@@ -199,7 +199,7 @@ const calculateRatingAverage = (
     return { average: current.average, count: current.count };
   }
 
-  let average =
+  const average =
     (BigInt(current.average * current.count) + rating) /
     BigInt(current.count + 1n);
   return { average, count: current.count + 1n };

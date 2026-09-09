@@ -18,6 +18,10 @@ import type { ContractAddress } from "@midnight-ntwrk/ledger-v7";
 import {
   type PrivateStateId,
   type PrivateStateProvider,
+  type PrivateStateExport,
+  type ImportPrivateStatesResult,
+  type SigningKeyExport,
+  type ImportSigningKeysResult,
 } from "@midnight-ntwrk/midnight-js-types";
 
 /**
@@ -34,6 +38,14 @@ export const inMemoryPrivateStateProvider = <
   const signingKeys = {} as Record<ContractAddress, SigningKey>;
 
   return {
+    /**
+     * Sets the contract address used to scope private state operations.
+     * This in-memory provider does not persist data, so no additional
+     * scoping is required beyond accepting the call.
+     */
+    setContractAddress(): void {
+      // No-op: state is already keyed uniquely by private state ID.
+    },
     /**
      * Sets the private state for a given key.
      * @param {PSI} key - The key for the private state.
@@ -112,6 +124,42 @@ export const inMemoryPrivateStateProvider = <
         delete signingKeys[contractAddress];
       });
       return Promise.resolve();
+    },
+    /**
+     * Not supported: this in-memory provider does not persist data, so
+     * there is nothing to export.
+     */
+    exportPrivateStates(): Promise<PrivateStateExport> {
+      return Promise.reject(
+        new Error("exportPrivateStates is not supported by inMemoryPrivateStateProvider"),
+      );
+    },
+    /**
+     * Not supported: this in-memory provider does not persist data, so
+     * there is nothing to import into.
+     */
+    importPrivateStates(): Promise<ImportPrivateStatesResult> {
+      return Promise.reject(
+        new Error("importPrivateStates is not supported by inMemoryPrivateStateProvider"),
+      );
+    },
+    /**
+     * Not supported: this in-memory provider does not persist data, so
+     * there is nothing to export.
+     */
+    exportSigningKeys(): Promise<SigningKeyExport> {
+      return Promise.reject(
+        new Error("exportSigningKeys is not supported by inMemoryPrivateStateProvider"),
+      );
+    },
+    /**
+     * Not supported: this in-memory provider does not persist data, so
+     * there is nothing to import into.
+     */
+    importSigningKeys(): Promise<ImportSigningKeysResult> {
+      return Promise.reject(
+        new Error("importSigningKeys is not supported by inMemoryPrivateStateProvider"),
+      );
     },
   };
 };

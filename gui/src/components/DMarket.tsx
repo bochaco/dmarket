@@ -139,10 +139,10 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
   // Read current list of offers when we get a state update
   useEffect(() => {
     if (dMarketState) {
-      let updatedUsers = carriersAsUsers(dMarketState).concat(
+      const updatedUsers = carriersAsUsers(dMarketState).concat(
         sellersAsUsers(dMarketState),
       );
-      let offers = updatedOffers(dMarketState, dMarketApi, updatedUsers);
+      const offers = updatedOffers(dMarketState, dMarketApi, updatedUsers);
       setUsers(updatedUsers);
       setOffers(offers);
     }

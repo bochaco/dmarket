@@ -1,9 +1,6 @@
 import { Item, DMarketSimulator } from "./dmarket-simulator.js";
 import { toHex } from "@midnight-ntwrk/midnight-js-utils";
-import {
-  setNetworkId,
-  NetworkId,
-} from "@midnight-ntwrk/midnight-js-network-id";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { describe, it, expect } from "vitest";
 import {
   randomBytes,
@@ -21,7 +18,7 @@ import {
   encodeCoinPublicKey,
 } from "@midnight-ntwrk/ledger-v7";
 
-setNetworkId("undeployed" as NetworkId);
+setNetworkId("undeployed");
 
 const genRandomItem = (): Item => {
   const item: Item = {

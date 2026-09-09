@@ -178,7 +178,7 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
   }
 
   reset(): Observable<DMarketDeployment> {
-    let deployment = new BehaviorSubject<DMarketDeployment>({
+    const deployment = new BehaviorSubject<DMarketDeployment>({
       status: "init",
     });
 
@@ -219,7 +219,7 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
     initNonce: Uint8Array,
     accountPassword: Uint8Array,
   ): Observable<DMarketDeployment> {
-    let deployment = new BehaviorSubject<DMarketDeployment>({
+    const deployment = new BehaviorSubject<DMarketDeployment>({
       status: "in-progress",
     });
 

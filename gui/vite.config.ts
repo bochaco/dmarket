@@ -27,9 +27,11 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks(id) {
           // Separate chunk for WASM modules to avoid top-level await issues
-          wasm: ["@midnight-ntwrk/onchain-runtime-v2"],
+          if (id.includes("@midnight-ntwrk/onchain-runtime-v2")) {
+            return "wasm";
+          }
         },
       },
     },
