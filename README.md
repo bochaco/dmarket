@@ -177,10 +177,10 @@ npm run compact
 
 ### 4. Run the Midnight proof server
 
-Follow the Midnight [documentation to start the local proof server](https://docs.midnight.network/getting-started/installation#run-the-proof-server).
+Follow the Midnight [documentation to start the local proof server](https://docs.midnight.network/getting-started/installation#run-the-proof-server), using the Proof Server version listed in the [support matrix](https://docs.midnight.network/relnotes/support-matrix) (currently 8.1.0).
 
 ```sh
-docker run -p 6300:6300 midnightntwrk/proof-server:7.0.0 -- midnight-proof-server -v
+docker run -p 6300:6300 midnightntwrk/proof-server:8.1.0 -- midnight-proof-server -v
 ```
 
 ### 5. Run the local Arweave gateway (arlocal) for dStorage
