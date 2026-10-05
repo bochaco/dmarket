@@ -345,10 +345,7 @@ const initializeProviders = async (
   logger: Logger,
 ): Promise<InitializedProviders> => {
   const networkId = NETWORK_ID;
-  const { connectedAPI, walletRdns } = await connectToWallet(
-    logger,
-    networkId,
-  );
+  const { connectedAPI, walletRdns } = await connectToWallet(logger, networkId);
   const zkConfigPath = window.location.origin; // '../../../contract/src/managed/DMarket';
   const keyMaterialProvider = new FetchZkConfigProvider<DMarketCircuitKeys>(
     zkConfigPath,
@@ -386,8 +383,9 @@ const initializeProviders = async (
         try {
           logger.info({ tx, ttl }, "Balancing transaction via wallet");
           const serializedTx = toHex(tx.serialize());
-          const received =
-            await connectedAPI.balanceUnsealedTransaction(serializedTx);
+          const received = await retryWhileWalletTxPending(logger, () =>
+            connectedAPI.balanceUnsealedTransaction(serializedTx),
+          );
           return Transaction.deserialize<SignatureEnabled, Proof, Binding>(
             "signature",
             "proof",
@@ -402,7 +400,10 @@ const initializeProviders = async (
     },
     midnightProvider: {
       submitTx: async (tx: FinalizedTransaction): Promise<TransactionId> => {
-        await connectedAPI.submitTransaction(toHex(tx.serialize()));
+        const serializedTx = toHex(tx.serialize());
+        await retryWhileWalletTxPending(logger, () =>
+          connectedAPI.submitTransaction(serializedTx),
+        );
         const txIdentifiers = tx.identifiers();
         const txId = txIdentifiers[0]; // Return the first transaction ID
         logger.info({ txIdentifiers }, "Submitted transaction via wallet");
@@ -418,6 +419,42 @@ const initializeProviders = async (
       proofServerUri: config.proverServerUri!,
     },
   };
+};
+
+// How long, and how often, to retry a wallet request while it reports a pending transaction.
+const WALLET_PENDING_TX_MAX_WAIT_MS = 3 * 60_000;
+const WALLET_PENDING_TX_RETRY_MS = 3_000;
+
+/**
+ * Calls the wallet, retrying while it rejects the request because a previous transaction
+ * is still pending. This happens when transactions are sent back to back (e.g. publishing
+ * an offer registers its content in dStorage first): the wallet only accepts a new one
+ * once it has seen the previous one confirmed, which can take a few seconds more.
+ */
+const retryWhileWalletTxPending = async <T>(
+  logger: Logger,
+  request: () => Promise<T>,
+): Promise<T> => {
+  const deadline = Date.now() + WALLET_PENDING_TX_MAX_WAIT_MS;
+  for (;;) {
+    try {
+      return await request();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (
+        !/transaction is already pending/i.test(message) ||
+        Date.now() > deadline
+      ) {
+        throw e;
+      }
+      logger.info(
+        "Wallet has a pending transaction, waiting for it to confirm before retrying...",
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, WALLET_PENDING_TX_RETRY_MS),
+      );
+    }
+  }
 };
 
 /** @internal */
