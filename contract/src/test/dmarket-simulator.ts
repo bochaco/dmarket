@@ -24,7 +24,7 @@ import {
   createDMarketPrivateState,
 } from "../witnesses.js";
 import { randomBytes } from "./utils.js";
-import { encodeShieldedCoinInfo } from "@midnight-ntwrk/ledger-v7";
+import { encodeShieldedCoinInfo } from "@midnight-ntwrk/ledger-v8";
 
 export interface Item {
   id: Uint8Array;
@@ -214,6 +214,8 @@ export class DMarketSimulator {
   }
 
   public rateSeller(offerId: Uint8Array, rating: bigint): [] {
+    // FIXME: circuit temporarily disabled (Lace wallet issue #2179)
+    // @ts-expect-error: remove once the rating circuits are re-enabled
     const res = this.contract.circuits.rateSeller(
       this.circuitContext,
       offerId,
@@ -224,6 +226,8 @@ export class DMarketSimulator {
   }
 
   public rateCarrier(offerId: Uint8Array, rating: bigint): [] {
+    // FIXME: circuit temporarily disabled (Lace wallet issue #2179)
+    // @ts-expect-error: remove once the rating circuits are re-enabled
     const res = this.contract.circuits.rateCarrier(
       this.circuitContext,
       offerId,
@@ -234,6 +238,8 @@ export class DMarketSimulator {
   }
 
   public rateBuyer(offerId: Uint8Array, rating: bigint): [] {
+    // FIXME: circuit temporarily disabled (Lace wallet issue #2179)
+    // @ts-expect-error: remove once the rating circuits are re-enabled
     const res = this.contract.circuits.rateBuyer(
       this.circuitContext,
       offerId,

@@ -16,7 +16,7 @@ import {
 import {
   createShieldedCoinInfo,
   encodeCoinPublicKey,
-} from "@midnight-ntwrk/ledger-v7";
+} from "@midnight-ntwrk/ledger-v8";
 
 setNetworkId("undeployed");
 
@@ -574,7 +574,8 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().treasury.value).toEqual(0n);
   });
 
-  it("users set rating after purchased is completed", () => {
+  // FIXME: rating circuits are temporarily disabled (Lace wallet issue #2179)
+  it.skip("users set rating after purchased is completed", () => {
     const [users, simulator] = randomUsers();
     const { offer, fee } = publishOffer(simulator, users, OfferState.Completed);
 

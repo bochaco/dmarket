@@ -59,7 +59,7 @@ import {
   SignatureEnabled,
   Transaction,
   TransactionId,
-} from "@midnight-ntwrk/ledger-v7";
+} from "@midnight-ntwrk/ledger-v8";
 import { UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
 import {
   ConnectedAPI,

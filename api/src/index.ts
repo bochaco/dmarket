@@ -34,7 +34,7 @@ import { type DMarketPrivateState, createDMarketPrivateState } from '../../contr
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { combineLatest, map, tap, from, type Observable } from 'rxjs';
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
-import { createShieldedCoinInfo, encodeShieldedCoinInfo } from '@midnight-ntwrk/ledger-v7';
+import { createShieldedCoinInfo, encodeShieldedCoinInfo } from '@midnight-ntwrk/ledger-v8';
 import * as Rx from 'rxjs';
 
 /**
