@@ -35,7 +35,6 @@ import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-j
 import { combineLatest, map, tap, from, type Observable } from 'rxjs';
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
 import { createShieldedCoinInfo, encodeShieldedCoinInfo } from '@midnight-ntwrk/ledger-v8';
-import * as Rx from 'rxjs';
 import { MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 
 /**
@@ -86,7 +85,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
   /** @internal */
   private constructor(
     public readonly deployedContract: DeployedDMarketContract,
-    providers: DMarketProviders,
+    private readonly providers: DMarketProviders,
     dataRegistryAddress: ContractAddress,
     private readonly logger?: Logger,
   ) {
@@ -188,6 +187,19 @@ export class DMarketAPI implements DeployedDMarketAPI {
    */
   readonly state$: Observable<DMarketDerivedState>;
 
+  /**
+   * Returns the color of the shielded coins minted by the contract. Its domain separator is
+   * fixed at deployment, so it's read with a one-off query of the contract state.
+   */
+  private async getCoinColor(): Promise<string> {
+    const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
+    if (!contractState) {
+      throw new Error(`Failed to read the state of DMarket contract at ${this.deployedContractAddress}`);
+    }
+    const domainSep = ledger(contractState.data).coinDomainSeparator;
+    return rawTokenType(domainSep, this.deployedContractAddress);
+  }
+
   async mintCoins(): Promise<void> {
     this.logger?.info(`minting shielded coins ...`);
 
@@ -236,9 +248,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
   }
 
   async purchaseItem(offerId: string, carrierId: string, totalAmount: bigint, deliveryAddress: string): Promise<void> {
-    const contractAddress = this.deployedContract.deployTxData.public.contractAddress;
-    const domainSep = (await Rx.firstValueFrom(this.state$)).coinDomainSeparator;
-    const coinColor: string = rawTokenType(domainSep, contractAddress);
+    const coinColor = await this.getCoinColor();
 
     this.logger?.info(`purchasing offered item: ${offerId} amount: ${totalAmount}, coinColor: ${coinColor}`);
     const coinInfo = createShieldedCoinInfo(coinColor, totalAmount);
@@ -258,9 +268,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
   }
 
   async itemPickedUp(offerId: string, depositAmount: bigint, eta: bigint | null): Promise<void> {
-    const contractAddress = this.deployedContract.deployTxData.public.contractAddress;
-    const domainSep = (await Rx.firstValueFrom(this.state$)).coinDomainSeparator;
-    const coinColor: string = rawTokenType(domainSep, contractAddress);
+    const coinColor = await this.getCoinColor();
 
     this.logger?.info(
       `accepting and picking up purchased item: ${offerId} deposit: ${depositAmount}, coinColor: ${coinColor}`,
