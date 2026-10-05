@@ -14,6 +14,7 @@
 - [How dMarket maps to the Midnight Summit 2025 Hackathon judging rubric](#how-dmarket-maps-to-the-midnight-summit-2025-hackathon-judging-rubric)
 - [Quick architecture / where to look in the repo](#quick-architecture--where-to-look-in-the-repo)
 - [Getting started (local demo)](#getting-started-local-demo)
+- [Running on different Midnight networks](#running-on-different-midnight-networks)
 - [Tests & verification](#tests--verification)
 - [Demo checklist](#demo-checklist)
 - [Current limitations & planned next steps](#current-limitations--planned-next-steps)
@@ -191,7 +192,7 @@ Offers' metadata and images are stored using the [dStorage SDK](https://dstorage
 docker run -d --rm -p 1984:1984 textury/arlocal
 ```
 
-### 6. Running the GUI with Midnight Preprod Network
+### 6. Running the GUI
 
 - Start the Backend Server
 
@@ -201,9 +202,65 @@ npm install
 npm run build:start
 ```
 
-- The GUI connects to the Midnight Preprod network by default. To use another network, e.g. a local `undeployed` network, set the `VITE_NETWORK_ID` environment variable when building it: `VITE_NETWORK_ID=undeployed npm run build:start`. The wallet must be connected to the same network.
+- The GUI connects to the Midnight Preprod network by default. To use another network see [Running on different Midnight networks](#running-on-different-midnight-networks).
 - Open [http://localhost:8080](http://localhost:8080) in your browser.
 - Ensure you have the [Lace wallet](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) extension installed, connected, and with available `tNIGHT` and `tDUST` funds. You can get tNIGHT from the [Preprod Faucet](https://faucet.preprod.midnight.network).
+
+## Running on different Midnight networks
+
+The Midnight network the GUI connects to is selected at build time with the `VITE_NETWORK_ID` environment variable:
+
+| `VITE_NETWORK_ID` | Network | Notes |
+| --- | --- | --- |
+| `preprod` (default) | Midnight Preprod public network | Get tNIGHT from the [Preprod Faucet](https://faucet.preprod.midnight.network) |
+| `preview` | Midnight Preview public network | Get tNIGHT from the [Preview Faucet](https://faucet.preview.midnight.network) |
+| `undeployed` | Local Midnight network running on your machine | See [Local network (`undeployed`)](#local-network-undeployed) below |
+
+```sh
+cd gui
+VITE_NETWORK_ID=undeployed npm run build:start   # or preview; omit it for preprod
+```
+
+The value is embedded in the build, so rebuild the GUI whenever you switch networks.
+
+Regardless of the network:
+
+- The wallet (Lace or any other Midnight wallet) must be connected to the same network. The GUI uses the indexer and proof server configured in the wallet, so these don't need to be set in dMarket.
+- The wallet needs `tNIGHT` registered for DUST generation, as DUST pays the transaction fees. Note that deploying a new dMarket instance, and publishing each offer, require two transactions (see [Off-chain storage with dStorage](#off-chain-storage-with-dstorage)).
+- The indexer configured in the wallet must be in sync with the network: wallets take the DUST spend time from it, and the network rejects transactions whose DUST is outside its validity window (node error `171`, `OutOfDustValidityWindow`). dMarket checks this before deploying or joining a contract, and shows an error naming the indexer if it's out of sync. In such a case, configure your wallet to use an indexer in sync with the network (e.g. the official `https://indexer.<network>.midnight.network/api/v4/graphql`).
+- The local Arweave gateway ([arlocal](#5-run-the-local-arweave-gateway-arlocal-for-dstorage)) is needed for storing the offers' content.
+- dMarket contracts and dStorage `DataRegistry` contracts only exist on the network they were deployed to, so a contract address from one network can't be joined from another.
+
+### Local network (`undeployed`)
+
+A local Midnight network (node, indexer and proof server) can be run with Docker, e.g. using [midnight-local-network](https://github.com/bricktowers/midnight-local-network), which also provides scripts to fund wallets on it:
+
+1. Start the local network:
+
+   ```sh
+   git clone https://github.com/bricktowers/midnight-local-network.git
+   cd midnight-local-network
+   yarn install
+   docker compose up -d
+   ```
+
+   It runs the node on port `9944`, the indexer on `8088` and the proof server on `6300`. Make sure the versions of these components match the [support matrix](https://docs.midnight.network/relnotes/support-matrix).
+
+2. Switch your wallet to the local network, e.g. in Lace: Settings → Midnight → select the **Undeployed** network.
+
+3. Fund your wallet and register its tNIGHT for DUST generation, using the wallet's recovery phrase (use a test wallet for this):
+
+   ```sh
+   yarn fund-and-register-dust "<wallet mnemonic words>"
+   ```
+
+4. Build and run the GUI with `VITE_NETWORK_ID=undeployed`, as shown above.
+
+Restarting the local network with `docker compose down`/`up` creates a new chain from scratch. After that:
+
+- Resync your wallet with the new chain (e.g. switch to another network and back to Undeployed, or restore the wallet from its recovery phrase), otherwise it keeps its DUST state from the previous chain and its transactions are rejected (`InvalidDustSpendProof`).
+- Fund the wallet and register it for DUST again (step 3).
+- Deploy a new dMarket instance, as contracts deployed on the previous chain no longer exist.
 
 ## Tests & verification
 
