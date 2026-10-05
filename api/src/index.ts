@@ -36,6 +36,14 @@ import { combineLatest, map, tap, from, type Observable } from 'rxjs';
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
 import { createShieldedCoinInfo, encodeShieldedCoinInfo } from '@midnight-ntwrk/ledger-v8';
 import * as Rx from 'rxjs';
+import { MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
+
+/**
+ * Returns the bytes of a coin public key, which wallets connected through the DApp
+ * Connector API provide Bech32m-encoded (e.g. `mn_shield-cpk_...`), or as hex otherwise.
+ */
+const coinPublicKeyBytes = (coinPublicKey: string): Uint8Array =>
+  coinPublicKey.startsWith('mn_') ? new Uint8Array(MidnightBech32m.parse(coinPublicKey).data) : fromHex(coinPublicKey);
 
 /**
  * An API for a deployed DMarket.
@@ -140,7 +148,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
         }
 
         const pk = providers.walletProvider.getCoinPublicKey();
-        const zswapPk = { bytes: fromHex(pk) };
+        const zswapPk = { bytes: coinPublicKeyBytes(pk) };
         const nonce = privateState.secretKey;
         const contractAddr = encodeContractAddress(this.deployedContractAddress);
 
