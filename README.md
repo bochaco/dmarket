@@ -9,6 +9,7 @@
 - [Core idea and problem solved](#core-idea-and-problem-solved)
 - [Privacy & selective disclosure of delivery data](#privacy--selective-disclosure-of-delivery-data)
 - [Ratings & reputation — building trust](#ratings--reputation--building-trust)
+- [Off-chain storage with dStorage](#off-chain-storage-with-dstorage)
 - [Main end-to-end (E2E) flow — primary demo use case](#main-end-to-end-e2e-flow--primary-demo-use-case)
 - [How dMarket maps to the Midnight Summit 2025 Hackathon judging rubric](#how-dmarket-maps-to-the-midnight-summit-2025-hackathon-judging-rubric)
 - [Quick architecture / where to look in the repo](#quick-architecture--where-to-look-in-the-repo)
@@ -22,7 +23,7 @@
 
 dMarket is a privacy-aware decentralised marketplace (dApp) that implements a three-party escrow flow (Seller, Carrier, Buyer) with secure handoff, dispute resolution, and selective disclosure. It demonstrates how Midnight-native privacy and ZK tooling can be combined with an intuitive web UI to create trustworthy, user-friendly commerce workflows that lowers logistics and selling costs.
 
-This project is built on the Midnight Network.
+This project is built on the Midnight Network, and uses the [dStorage SDK](https://github.com/dstoragetech/dstorage-sdk) ([dstorage.pro](https://dstorage.pro)) to store offers' metadata and images off-chain, keeping only their dStorage reference IDs in the dMarket smart contract.
 
 **Note:** This project is currently compatible and can be deployed on the **Midnight Preprod Network**.
 
@@ -51,6 +52,26 @@ Ratings and reputation are a core security and trust mechanism in dMarket. After
 - Transparency & privacy: public reputation aggregates are shown (e.g., average rating, number of reviews) while detailed feedback can be selectively disclosed to involved parties to preserve privacy using the same asymetric encryption technique used on delivery addresses.
 
 These mechanics reduce counterparty risk, help buyers choose reliable carriers, and create economic incentives for honest behavior.
+
+## Off-chain storage with dStorage
+
+dMarket uses the **dStorage SDK** to store the offers' content off-chain, rather than in the dMarket smart contract's ledger:
+
+- SDK repository: [github.com/dstoragetech/dstorage-sdk](https://github.com/dstoragetech/dstorage-sdk)
+- npm package: [@dstorage-tech/dstorage-sdk](https://www.npmjs.com/package/@dstorage-tech/dstorage-sdk)
+- Website and docs: [dstorage.pro](https://dstorage.pro)
+
+How it works:
+
+- When a seller publishes an offer, the item's name, description and images are serialised into a single JSON document and stored with one `dstorage.store()` call. The images are uploaded from the seller's device, not linked from external URLs.
+- dStorage uploads the document to the storage network, and registers a reference to it in its own `DataRegistry` contract on Midnight. It returns a 32-byte reference ID (`chainRefId`).
+- Only that reference ID is stored in the dMarket contract (`Offer.metaRef: Bytes<32>`). Any user can then resolve it with `dstorage.retrieveByRefId()` to display the offer.
+- The address of the dStorage `DataRegistry` contract is set in the dMarket contract at deployment (`dataRegistry` ledger field). When deploying a new dMarket instance, a new `DataRegistry` contract is deployed first. When joining an existing dMarket instance, its `DataRegistry` address is read from the dMarket ledger.
+- Offers' content is stored public (unencrypted) so it can be read by all buyers and carriers. A total of 5 MB of images per offer is currently allowed.
+- Publishing an offer requires two transactions, both paid with `tDUST` from the connected wallet: one to register the reference in the dStorage `DataRegistry` contract, and one to the dMarket `offerItem` circuit.
+- Storage backend: dMarket currently uses a local Arweave gateway ([arlocal](https://github.com/textury/arlocal)) through the dStorage `ArweaveLocalStorageAdapter`, with an auto-funded test wallet. It must be running on `localhost:1984` (see [Getting started](#getting-started-local-demo)).
+
+The integration lives in `api/src/offer-content.ts` (`OfferContentStore`), `gui/src/dstorage.ts` and `cli/src/dstorage.ts`.
 
 ## Main end-to-end (E2E) flow — primary demo use case
 
@@ -107,7 +128,7 @@ Below is a concise mapping to help judges score the project across the core doma
 
 - `gui/` — React + TypeScript web UI, demo-ready front-end (components, modals, and the main app).
 - `contract/` — contract sources, compact artifacts, ZK witness code and a `managed/dmarket` folder containing compiled artifacts and keys.
-- `api/` — backend integration and off-chain logic: server entrypoint, API routes, and utility wrappers for calling contracts and proof-server endpoints.
+- `api/` — backend integration and off-chain logic: server entrypoint, API routes, and utility wrappers for calling contracts and proof-server endpoints. `api/src/offer-content.ts` stores and retrieves offers' content using the [dStorage SDK](https://github.com/dstoragetech/dstorage-sdk).
 
 ## Getting started (local demo)
 
@@ -162,7 +183,15 @@ Follow the Midnight [documentation to start the local proof server](https://docs
 docker run -p 6300:6300 midnightntwrk/proof-server:7.0.0 -- midnight-proof-server -v
 ```
 
-### 5. Running the GUI with Midnight Preprod Network
+### 5. Run the local Arweave gateway (arlocal) for dStorage
+
+Offers' metadata and images are stored using the [dStorage SDK](https://dstorage.pro), currently backed by a local Arweave gateway:
+
+```sh
+docker run -d --rm -p 1984:1984 textury/arlocal
+```
+
+### 6. Running the GUI with Midnight Preprod Network
 
 - Start the Backend Server
 
@@ -203,7 +232,7 @@ Below are the known limitations and an actionable checklist of planned next step
 
 - **Temporarily disabled features ([Lace wallet issue #2179](https://github.com/input-output-hk/lace/issues/2179))**: The following circuits are currently disabled in the contract and API until the wallet issue is resolved: `rateSeller`, `rateCarrier`, and `rateBuyer`. This means some post-completion ratings are temporarily unavailable in the live flow.
 - **Contract address support**: Seller, buyer, and carrier roles do not currently accept contract addresses.
-- **Transaction history & metadata**: Transaction history and item metadata are currently stored in the ledger; future versions may use external storage (database, IPFS, Autonomi, or other) for scalability and richer indexing.
+- **Transaction history & metadata**: Item metadata and images are stored off-chain using the [dStorage SDK](https://dstorage.pro), currently with a local Arweave gateway (arlocal) only. Transaction history is still stored in the ledger. Seller and carrier profiles are also still kept in the ledger.
 - **Shielded coins**: Shielded coins used in dMarket are minted by the same contract; a future improvement is to separate coin minting into a dedicated Coin contract.
 - **Dispute initiation**: At present only buyers can open disputes. Future work will allow carriers to initiate disputes as well.
 - **Dispute resolution**: The seller currently serves as the default arbitrator for buyer-initiated disputes. Future versions may support external arbitrators or configurable arbitration services.
@@ -214,7 +243,9 @@ Below are the known limitations and an actionable checklist of planned next step
 - [ ] Add support for contract addresses in Seller/Buyer/Carrier roles.
 - [ ] Allow sellers to set pickup locations so carriers can calculate and propose accurate delivery fees.
 - [ ] Extend carrier bids to include multiple delivery options (different destination zones, distances, and associated fees).
-- [ ] Design and implement external storage for transaction history and item metadata (e.g., a DB or IPFS/Autonmi + indexer).
+- [x] Store item metadata and images off-chain using the [dStorage SDK](https://github.com/dstoragetech/dstorage-sdk).
+- [ ] Support other dStorage storage backends (e.g. Arweave mainnet, dStorage Pro managed payments) besides arlocal.
+- [ ] Move seller/carrier profiles and dispute details to dStorage as well.
 - [ ] Extract shielded coin minting into a dedicated Coin contract and update interactions accordingly.
 - [ ] Enable carriers to open disputes and integrate them into the dispute workflow.
 - [ ] Integrate external arbitrator workflows and allow arbiters to resolve disputes (with clear audit logs).

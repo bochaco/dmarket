@@ -13,6 +13,10 @@ dist-ssr
 *.local
 managed
 
+# ZK artifacts copied by gui/scripts/copy-zk-artifacts.mjs
+gui/public/keys
+gui/public/zkir
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

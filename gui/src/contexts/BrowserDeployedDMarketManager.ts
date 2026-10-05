@@ -40,7 +40,12 @@ import {
   type DMarketProviders,
   type DeployedDMarketAPI,
 } from "../../../api/src/index";
+import { type OfferContentStore } from "../../../api/src/index";
 import { inMemoryPrivateStateProvider } from "../inMemoryPrivateState";
+import {
+  createOfferContentStore,
+  type DStorageChainSettings,
+} from "../dstorage";
 import {
   type ContractAddress,
   fromHex,
@@ -85,6 +90,12 @@ export interface DeployedDMarketDeployment {
    * The {@link DeployedDMarketAPI} instance when connected to an on network DMarket contract.
    */
   readonly api: DeployedDMarketAPI;
+
+  /**
+   * The store for the offers' content (metadata and images), kept off-chain
+   * using the dStorage SDK.
+   */
+  readonly offerContent: OfferContentStore;
 }
 
 /**
@@ -163,7 +174,7 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
   readonly #DMarketDeploymentsSubject: BehaviorSubject<
     BehaviorSubject<DMarketDeployment>
   >;
-  #initializedProviders: Promise<DMarketProviders> | undefined;
+  #initializedProviders: Promise<InitializedProviders> | undefined;
 
   /**
    * Initializes a new {@link BrowserDeployedDMarketManager} instance.
@@ -230,7 +241,7 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
     return deployment;
   }
 
-  private getProviders(): Promise<DMarketProviders> {
+  private getProviders(): Promise<InitializedProviders> {
     // We use a cached `Promise` to hold the providers. This will:
     //
     // 1. Cache and re-use the providers (including the configured connector API), and
@@ -249,11 +260,20 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
     accountPassword: Uint8Array,
   ): Promise<void> {
     try {
-      const providers = await this.getProviders();
+      const { providers, dStorageSettings } = await this.getProviders();
+
+      // A new dStorage DataRegistry contract is deployed first, its address is
+      // then set in the DMarket contract for offers' metadata to be resolved against.
+      const offerContent = await createOfferContentStore(
+        dStorageSettings,
+        accountPassword,
+        this.logger,
+      );
 
       const api = await DMarketAPI.deploy(
         providers,
         initNonce,
+        offerContent.dataRegistryAddress,
         accountPassword,
         this.logger,
       );
@@ -261,6 +281,7 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
       deployment.next({
         status: "deployed",
         api,
+        offerContent,
       });
     } catch (error: unknown) {
       deployment.next({
@@ -276,7 +297,7 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
     accountPassword: Uint8Array,
   ): Promise<void> {
     try {
-      const providers = await this.getProviders();
+      const { providers, dStorageSettings } = await this.getProviders();
 
       const api = await DMarketAPI.join(
         providers,
@@ -285,9 +306,17 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
         this.logger,
       );
 
+      const offerContent = await createOfferContentStore(
+        dStorageSettings,
+        accountPassword,
+        this.logger,
+        api.dataRegistryAddress,
+      );
+
       deployment.next({
         status: "deployed",
         api,
+        offerContent,
       });
     } catch (error: unknown) {
       deployment.next({
@@ -299,11 +328,20 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
 }
 
 /** @internal */
+interface InitializedProviders {
+  readonly providers: DMarketProviders;
+  readonly dStorageSettings: DStorageChainSettings;
+}
+
+/** @internal */
 const initializeProviders = async (
   logger: Logger,
-): Promise<DMarketProviders> => {
+): Promise<InitializedProviders> => {
   const networkId = "preprod"; //import.meta.env.VITE_NETWORK_ID
-  const connectedAPI = await connectToWallet(logger, networkId);
+  const { connectedAPI, walletRdns } = await connectToWallet(
+    logger,
+    networkId,
+  );
   const zkConfigPath = window.location.origin; // '../../../contract/src/managed/DMarket';
   const keyMaterialProvider = new FetchZkConfigProvider<DMarketCircuitKeys>(
     zkConfigPath,
@@ -315,7 +353,7 @@ const initializeProviders = async (
     DMarketPrivateState
   >();
   const shieldedAddresses = await connectedAPI.getShieldedAddresses();
-  return {
+  const providers: DMarketProviders = {
     privateStateProvider: inMemoryDMarketPrivateStateProvider,
     zkConfigProvider: keyMaterialProvider,
     proofProvider: httpClientProofProvider(
@@ -364,6 +402,14 @@ const initializeProviders = async (
       },
     },
   };
+  return {
+    providers,
+    dStorageSettings: {
+      networkId,
+      walletRdns,
+      proofServerUri: config.proverServerUri!,
+    },
+  };
 };
 
 /** @internal */
@@ -385,7 +431,7 @@ const getFirstMidnightConnector = (): InitialAPI => {
 const connectToWallet = (
   logger: Logger,
   networkId: string,
-): Promise<ConnectedAPI> => {
+): Promise<{ connectedAPI: ConnectedAPI; walletRdns: string }> => {
   const COMPATIBLE_CONNECTOR_API_VERSION = "4.x";
 
   return firstValueFrom(
@@ -438,7 +484,7 @@ const connectToWallet = (
         const connectedAPI = await initialAPI.connect(networkId);
         const connectionStatus = await connectedAPI.getConnectionStatus();
         logger.info(connectionStatus, "Wallet connector API enabled status");
-        return connectedAPI;
+        return { connectedAPI, walletRdns: initialAPI.rdns };
       }),
       timeout({
         first: 5_000,

@@ -24,7 +24,7 @@ const genRandomItem = (): Item => {
   const item: Item = {
     id: randomBytes(32),
     price: randomNumber(50),
-    meta: toHex(randomBytes(10)),
+    metaRef: randomBytes(32),
   };
   return item;
 };
@@ -206,6 +206,16 @@ describe("dMarket smart contract", () => {
     expect(plainText).toEqual(decrypted);
   });
 
+  it("sets the dStorage DataRegistry address at deployment", () => {
+    const dataRegistryAddr = randomBytes(32);
+    const simulator = new DMarketSimulator(
+      randomBytes(32),
+      randomCoinPublicKeyHex(),
+      dataRegistryAddr,
+    );
+    expect(simulator.getLedger().dataRegistry).toEqual(dataRegistryAddr);
+  });
+
   it("publishing an offer", () => {
     const pk = randomCoinPublicKeyHex();
     const pwd = randomBytes(32);
@@ -221,7 +231,7 @@ describe("dMarket smart contract", () => {
     expect(simulator.getLedger().offers.isEmpty()).toBe(false);
     expect(offer.id).toEqual(simulator.genOfferId(item, mySellerId));
     expect(offer.price).toEqual(item.price);
-    expect(offer.meta).toEqual(item.meta);
+    expect(offer.metaRef).toEqual(item.metaRef);
     expect(offer.state).toEqual(OfferState.New);
     expect(offer.seller).toEqual(mySellerId);
     expect(offer.purchaseDetails.is_some).toBe(false);

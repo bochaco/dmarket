@@ -29,7 +29,7 @@ import { encodeShieldedCoinInfo } from "@midnight-ntwrk/ledger-v7";
 export interface Item {
   id: Uint8Array;
   price: bigint;
-  meta: string;
+  metaRef: Uint8Array;
 }
 
 /**
@@ -40,7 +40,11 @@ export class DMarketSimulator {
   readonly contractAddress: ContractAddress;
   circuitContext: CircuitContext<DMarketPrivateState>;
 
-  constructor(password: Uint8Array, senderPk: string) {
+  constructor(
+    password: Uint8Array,
+    senderPk: string,
+    dataRegistryAddr: Uint8Array = randomBytes(32),
+  ) {
     this.contractAddress = sampleContractAddress();
     this.contract = new Contract<DMarketPrivateState>(witnesses);
     const initNonce = randomBytes(32);
@@ -51,6 +55,7 @@ export class DMarketSimulator {
     } = this.contract.initialState(
       createConstructorContext(createDMarketPrivateState(password), senderPk),
       initNonce,
+      dataRegistryAddr,
     );
     this.circuitContext = {
       currentPrivateState,
@@ -99,7 +104,7 @@ export class DMarketSimulator {
       this.circuitContext,
       item.id,
       item.price,
-      item.meta,
+      item.metaRef,
       sellerMeta,
     );
     this.circuitContext = res.context;

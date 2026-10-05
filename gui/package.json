@@ -4,8 +4,9 @@
   "private": true,
   "version": "0.0.1",
   "scripts": {
+    "predev": "node scripts/copy-zk-artifacts.mjs public",
     "dev": "vite",
-    "build": "rm -rf ./dist && tsc -b && vite build --mode testnet && cp ./public/image-not-found.svg ./dist && cp -r ../contract/src/managed/dmarket/keys ./dist/keys && cp -r ../contract/src/managed/dmarket/zkir ./dist/zkir",
+    "build": "rm -rf ./dist && tsc -b && vite build --mode testnet && cp ./public/image-not-found.svg ./dist && node scripts/copy-zk-artifacts.mjs dist",
     "start": "http-server --port 0 ./dist",
     "start-port": "http-server --port $PORT ./dist",
     "build:start": "npm run build && npm run start",

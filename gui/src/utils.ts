@@ -2,6 +2,8 @@ import { getOfferStatus, OfferedItem, UserRole, User, Offer } from "./types";
 import {
   type DMarketDerivedState,
   type DeployedDMarketAPI,
+  type OfferDocument,
+  offerImageDataUrl,
 } from "../../api/src/index";
 import { toHex } from "@midnight-ntwrk/midnight-js-utils";
 
@@ -45,10 +47,11 @@ export const updatedOffers = (
   dMarketState: DMarketDerivedState,
   dMarketApi: DeployedDMarketAPI | undefined,
   updatedUsers: User[],
+  offerItems: Map<string, OfferedItem>,
 ): Offer[] => {
   const updatedOffers = [];
   for (const [id, offer] of dMarketState.offers) {
-    const offeredItem = deserializeItemMetadataJson(offer.meta);
+    const offeredItem = offerItems.get(toHex(offer.metaRef)) ?? LOADING_ITEM;
     const sellerId = toHex(offer.seller);
     const sellerUser = updatedUsers.find((u) => u.id === sellerId);
     if (sellerUser) {
@@ -165,29 +168,31 @@ const deserializeUserMetadataJson = (string: string): { name: string } => {
   }
 };
 
-const deserializeItemMetadataJson = (string: string): OfferedItem => {
-  try {
-    // Attempt to parse the JSON string
-    const parsedData = JSON.parse(string);
-    const url = parseUrl(parsedData.imageUrl);
-    return {
-      name: parsedData.name,
-      imageUrls: [url],
-      description: `${parsedData.description.slice(0, 200)}...`,
-    };
-  } catch (error) {
-    const url = parseUrl(string);
-    return { name: "", imageUrls: [url], description: "" };
-  }
+// Placeholder item shown while the offer's content is being fetched from dStorage.
+const LOADING_ITEM: OfferedItem = {
+  name: "Loading...",
+  imageUrls: [""],
+  description: "",
 };
 
-const parseUrl = (urlStr: string): string => {
-  try {
-    const url = new URL(urlStr).href ? urlStr : "";
-    return url;
-  } catch (error) {
-    return "";
-  }
+// Placeholder item shown when the offer's content couldn't be fetched from dStorage.
+export const UNAVAILABLE_ITEM: OfferedItem = {
+  name: "Unavailable",
+  imageUrls: [""],
+  description: "The content of this offer could not be retrieved from dStorage.",
+};
+
+// Converts an offer document retrieved from dStorage into the item to display.
+export const offerDocumentAsItem = (doc: OfferDocument): OfferedItem => {
+  const imageUrls = doc.images.map(offerImageDataUrl);
+  return {
+    name: doc.name,
+    imageUrls: imageUrls.length > 0 ? imageUrls : [""],
+    description:
+      doc.description.length > 200
+        ? `${doc.description.slice(0, 200)}...`
+        : doc.description,
+  };
 };
 
 const calculateRatingAverage = (

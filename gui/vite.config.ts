@@ -13,11 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
-// import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { nodePolyfills } from "vite-plugin-node-polyfills";
+import { viteCommonjs } from "@originjs/vite-plugin-commonjs";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -52,6 +54,12 @@ export default defineConfig({
       promiseExportName: "__tla",
       promiseImportName: (i) => `__tla_${i}`,
     }),
+    // The dStorage SDK makes use of some Node.js built-ins
+    nodePolyfills({
+      include: ["buffer", "process", "util", "crypto", "stream"],
+      globals: { Buffer: true, process: true },
+    }),
+    viteCommonjs(),
     // Custom resolver for handling problematic modules
     {
       name: "wasm-module-resolver",
@@ -98,6 +106,22 @@ export default defineConfig({
   resolve: {
     // Ensure WASM files are loaded properly
     extensions: [".mjs", ".js", ".ts", ".jsx", ".tsx", ".json", ".wasm"],
+    alias: {
+      // The dStorage SDK bundle imports these shims directly, expecting
+      // vite-plugin-node-polyfills to provide them (hoisted to the root node_modules).
+      "vite-plugin-node-polyfills/shims/buffer": fileURLToPath(
+        new URL(
+          "../node_modules/vite-plugin-node-polyfills/shims/buffer/dist/index.js",
+          import.meta.url,
+        ),
+      ),
+      "vite-plugin-node-polyfills/shims/global": fileURLToPath(
+        new URL(
+          "../node_modules/vite-plugin-node-polyfills/shims/global/dist/index.js",
+          import.meta.url,
+        ),
+      ),
+    },
     mainFields: ["browser", "module", "main"],
   },
 });

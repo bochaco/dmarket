@@ -42,10 +42,11 @@ import * as Rx from 'rxjs';
  */
 export interface DeployedDMarketAPI {
   readonly deployedContractAddress: ContractAddress;
+  readonly dataRegistryAddress: ContractAddress;
   readonly state$: Observable<DMarketDerivedState>;
 
   mintCoins: () => Promise<void>;
-  offerItem: (id: Uint8Array, price: bigint, itemMeta: string, sellerMeta: string) => Promise<Offer>;
+  offerItem: (id: Uint8Array, price: bigint, itemMetaRef: Uint8Array, sellerMeta: string) => Promise<Offer>;
   decrypt: (ciphertext: string) => string;
   setCarrierBid: (offerId: string, fee: bigint, carrierMeta: string) => Promise<void>;
   purchaseItem: (offerId: string, carrierId: string, totalAmount: bigint, deliveryAddress: string) => Promise<void>;
@@ -78,9 +79,11 @@ export class DMarketAPI implements DeployedDMarketAPI {
   private constructor(
     public readonly deployedContract: DeployedDMarketContract,
     providers: DMarketProviders,
+    dataRegistryAddress: ContractAddress,
     private readonly logger?: Logger,
   ) {
     this.deployedContractAddress = deployedContract.deployTxData.public.contractAddress;
+    this.dataRegistryAddress = dataRegistryAddress;
     this.state$ = combineLatest(
       [
         // Combine public (ledger) state with...
@@ -166,6 +169,12 @@ export class DMarketAPI implements DeployedDMarketAPI {
   readonly deployedContractAddress: ContractAddress;
 
   /**
+   * Gets the address of the dStorage `DataRegistry` contract against which the
+   * offers' metadata references (`Offer.metaRef`) are to be resolved.
+   */
+  readonly dataRegistryAddress: ContractAddress;
+
+  /**
    * Gets an observable stream of state changes based on the current public (ledger),
    * and private state data.
    */
@@ -184,10 +193,12 @@ export class DMarketAPI implements DeployedDMarketAPI {
     });
   }
 
-  async offerItem(id: Uint8Array, price: bigint, itemMeta: string, sellerMeta: string): Promise<Offer> {
-    this.logger?.info(`creating offer for item ID ${toHex(id)} at a price of ${price}, with metadata: ${itemMeta}`);
+  async offerItem(id: Uint8Array, price: bigint, itemMetaRef: Uint8Array, sellerMeta: string): Promise<Offer> {
+    this.logger?.info(
+      `creating offer for item ID ${toHex(id)} at a price of ${price}, with metadata ref: ${toHex(itemMetaRef)}`,
+    );
     const idBytes = pad(id, 32);
-    const txData = await this.deployedContract.callTx.offerItem(idBytes, price, itemMeta, sellerMeta);
+    const txData = await this.deployedContract.callTx.offerItem(idBytes, price, itemMetaRef, sellerMeta);
     this.logger?.trace({
       transactionAdded: {
         circuit: 'offerItem',
@@ -387,12 +398,15 @@ export class DMarketAPI implements DeployedDMarketAPI {
   /**
    * Deploys a new DMarket contract to the network.
    *
+   * @param dataRegistryAddress The address of the dStorage `DataRegistry` contract where the
+   * offers' metadata references are to be registered.
    * @returns A `Promise` that resolves with a {@link DMarketAPI} instance that manages the newly deployed
    * {@link DeployedDMarketContract}; or rejects with a deployment error.
    */
   static async deploy(
     providers: DMarketProviders,
     initNonce: Uint8Array,
+    dataRegistryAddress: ContractAddress,
     password: Uint8Array,
     logger?: Logger,
   ): Promise<DMarketAPI> {
@@ -402,7 +416,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
       privateStateId: dMarketPrivateStateKey,
       compiledContract: CompiledDMarketContractContract,
       initialPrivateState: DMarketAPI.getPrivateState(providers, password),
-      args: [initNonce],
+      args: [initNonce, fromHex(dataRegistryAddress)],
     });
 
     logger?.trace({
@@ -411,7 +425,7 @@ export class DMarketAPI implements DeployedDMarketAPI {
       },
     });
 
-    return new DMarketAPI(deployedDMarketContract, providers, logger);
+    return new DMarketAPI(deployedDMarketContract, providers, dataRegistryAddress, logger);
   }
 
   /**
@@ -448,7 +462,13 @@ export class DMarketAPI implements DeployedDMarketAPI {
       },
     });
 
-    return new DMarketAPI(deployedDMarketContract, providers, logger);
+    const contractState = await providers.publicDataProvider.queryContractState(contractAddress);
+    if (!contractState) {
+      throw new Error(`Failed to read the state of DMarket contract at ${contractAddress}`);
+    }
+    const dataRegistryAddress = toHex(ledger(contractState.data).dataRegistry);
+
+    return new DMarketAPI(deployedDMarketContract, providers, dataRegistryAddress, logger);
   }
 
   private static getPrivateState(providers: DMarketProviders, password: Uint8Array): DMarketPrivateState {
@@ -457,3 +477,4 @@ export class DMarketAPI implements DeployedDMarketAPI {
 }
 
 export * from './common-types.js';
+export * from './offer-content.js';

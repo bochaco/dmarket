@@ -16,7 +16,11 @@ const ThumbnailImage: React.FC<ThumbnailImageProps> = ({
   onClick,
 }) => {
   const placeholderUrl = `/image-not-found.svg`;
-  const isValidHttpUrl = (string: string): boolean => {
+  // Images are either http(s) URLs, or data URLs of images stored in dStorage
+  const isValidImageUrl = (string: string): boolean => {
+    if (string.startsWith("data:image/")) {
+      return true;
+    }
     try {
       const url = new URL(string);
       return url.protocol === "http:" || url.protocol === "https:";
@@ -24,7 +28,7 @@ const ThumbnailImage: React.FC<ThumbnailImageProps> = ({
       return false;
     }
   };
-  const thumbnailUrl = isValidHttpUrl(imageUrl) ? imageUrl : placeholderUrl;
+  const thumbnailUrl = isValidImageUrl(imageUrl) ? imageUrl : placeholderUrl;
   const handleImageError = (
     e: React.SyntheticEvent<HTMLImageElement, Event>,
   ) => {

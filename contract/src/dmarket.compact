@@ -27,8 +27,10 @@ export { Utils_genBuyerId, Utils_genCarrierId, Utils_genSellerId, Utils_genOffer
  * - Roles (seller, buyer, carrier) use shielded/obfuscated identifiers derived from a
  *   user's public key and a local `secretKey()` witness — contract addresses are not
  *   supported as role identities today.
- * - Transaction history and item metadata are stored in the ledger; larger deployments
- *   may move heavy metadata to external storage and store only references on-chain.
+ * - Item metadata and images are stored off-chain using the dStorage SDK
+ *   (https://dstorage.pro); only the dStorage reference ID (`Bytes<32>`) of each offer's
+ *   document is kept in the ledger. References are resolved against the dStorage
+ *   `DataRegistry` contract whose address is set at deployment in `dataRegistry`.
  * - Shielded coins minted by this contract are used for payments; the minting logic
  *   currently lives in `Coins.compact` within the same package but could be split out.
  * - Disputes may only be opened by buyers today; dispute resolution is performed by
@@ -53,6 +55,10 @@ export ledger offers: Map<Bytes<32>, Offer>;
 // item and their bidding fee price.
 export ledger carrierBids: Map<Bytes<32>, Map<Bytes<32>, Uint<128>>>;
 
+// Address of the dStorage `DataRegistry` contract against which the offers'
+// metadata references (`Offer.metaRef`) are to be resolved.
+export sealed ledger dataRegistry: Bytes<32>;
+
 /**
  * @witness secretKey
  * @description A private per-user nonce used in deriving the shielded user identifiers.
@@ -69,8 +75,11 @@ witness encrypt(data: Opaque<'string'>, encryptionPk: Opaque<'string'>): Opaque<
 
 // Construction circuit, where coin domain separator and color are defined.
 // An initial nonce is provided which is then to generate new nonces for coin minting.
-constructor(initNonce: Bytes<32>) {
+// The address of the dStorage `DataRegistry` contract holding the offers' metadata
+// references is also set and cannot be changed afterwards.
+constructor(initNonce: Bytes<32>, dataRegistryAddr: Bytes<32>) {
   initialise(initNonce);
+  dataRegistry = disclose(dataRegistryAddr);
 }
 
 /**
@@ -90,13 +99,13 @@ constructor(initNonce: Bytes<32>) {
  * Parameters:
  * - `itemId`: unique item identifier (Bytes<32>).
  * - `price`: asking price in shielded coin units (Uint<128>).
- * - `itemMeta`: opaque metadata for the item (e.g. JSON string).
+ * - `itemMetaRef`: dStorage reference ID of the item's off-chain document (metadata and images).
  * - `sellerMeta`: opaque metadata for the seller (stored disclosed for lookup).
  */
 export circuit offerItem(
                  itemId: Bytes<32>,
                  price: Uint<128>,
-                 itemMeta: Opaque<'string'>,
+                 itemMetaRef: Bytes<32>,
                  sellerMeta: Opaque<'string'>
                  ): Offer {
   const sellerId = Utils_genSellerId(ownPublicKey(), secretKey(), kernel.self().bytes);
@@ -112,7 +121,7 @@ export circuit offerItem(
   const offer = Offer { ...default<Offer>,
                         id: offerId,
                         price: price,
-                        meta: itemMeta,
+                        metaRef: itemMetaRef,
                         seller: sellerId,
                         state: OfferState.New };
   offers.insert(dOfferId, disclose(offer));

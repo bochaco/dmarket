@@ -4,6 +4,7 @@ import React, {
   SetStateAction,
   useState,
   useEffect,
+  useRef,
 } from "react";
 import {
   UserRole,
@@ -13,8 +14,15 @@ import {
   DisputeResolutionType,
   DisputeReasonType,
   CarrierBid,
+  OfferedItem,
 } from "../types";
-import { updatedOffers, sellersAsUsers, carriersAsUsers } from "../utils.js";
+import {
+  updatedOffers,
+  sellersAsUsers,
+  carriersAsUsers,
+  offerDocumentAsItem,
+  UNAVAILABLE_ITEM,
+} from "../utils.js";
 
 import Header from "./Header";
 import WorkInProgressModal, {
@@ -38,7 +46,9 @@ import {
   DMarketAPI,
   type DMarketDerivedState,
   type DeployedDMarketAPI,
+  type OfferContentStore,
 } from "../../../api/src/index";
+import { toHex } from "@midnight-ntwrk/midnight-js-utils";
 
 // Props to pass to Modals displaying a form and using the dMarket API
 export interface FormProps {
@@ -58,6 +68,13 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
   const [dMarketDeployment, setDMarketDeployment] =
     useState<DMarketDeployment>();
   const [dMarketApi, setDMarketAPI] = useState<DeployedDMarketAPI>();
+  const [offerContent, setOfferContent] = useState<OfferContentStore>();
+  // Offers' content retrieved from dStorage, keyed by their reference ID (hex)
+  const [offerItems, setOfferItems] = useState<Map<string, OfferedItem>>(
+    new Map(),
+  );
+  // Reference IDs of the offers' content already requested to dStorage
+  const requestedOfferRefs = useRef<Set<string>>(new Set());
   const [dMarketState, setDMarketState] = useState<DMarketDerivedState>();
   const [isWorking, setIsWorking] = useState<WorkInProgressInfo | null>(null);
 
@@ -123,6 +140,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
     console.log(`dMarket connection status: ${dMarketDeployment.status}`);
 
     setDMarketAPI(dMarketDeployment.api);
+    setOfferContent(dMarketDeployment.offerContent);
     setContractAddress(dMarketDeployment.api.deployedContractAddress);
     setIsWorking(null);
     setIsSetupComplete(true);
@@ -142,11 +160,43 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       const updatedUsers = carriersAsUsers(dMarketState).concat(
         sellersAsUsers(dMarketState),
       );
-      const offers = updatedOffers(dMarketState, dMarketApi, updatedUsers);
+      const offers = updatedOffers(
+        dMarketState,
+        dMarketApi,
+        updatedUsers,
+        offerItems,
+      );
       setUsers(updatedUsers);
       setOffers(offers);
     }
-  }, [dMarketState, dMarketApi]);
+  }, [dMarketState, dMarketApi, offerItems]);
+
+  // Fetch from dStorage the content (metadata and images) of offers not retrieved yet
+  useEffect(() => {
+    if (!dMarketState || !offerContent) {
+      return;
+    }
+    for (const offer of dMarketState.offers.values()) {
+      const metaRef = toHex(offer.metaRef);
+      if (requestedOfferRefs.current.has(metaRef)) {
+        continue;
+      }
+      requestedOfferRefs.current.add(metaRef);
+      offerContent
+        .fetchOffer(metaRef)
+        .then(offerDocumentAsItem)
+        .catch((error) => {
+          console.error(
+            `Failed to retrieve offer content from dStorage (ref: ${metaRef}):`,
+            error,
+          );
+          return UNAVAILABLE_ITEM;
+        })
+        .then((item) => {
+          setOfferItems((current) => new Map(current).set(metaRef, item));
+        });
+    }
+  }, [dMarketState, offerContent]);
 
   const handleSetupComplete = useCallback(
     async (data: SetupData) => {
@@ -190,6 +240,9 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       dMarketApiProvider.reset();
       setUsers([]);
       setOffers([]);
+      setOfferItems(new Map());
+      setOfferContent(undefined);
+      requestedOfferRefs.current = new Set();
       setUserName("");
       setContractAddress("");
       setIsWorking(null);
@@ -274,6 +327,7 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
             {currentRole === UserRole.Seller && (
               <CreateOfferForm
                 userName={userName}
+                offerContent={offerContent}
                 formProps={{
                   dMarketApi,
                   setIsWorking,
