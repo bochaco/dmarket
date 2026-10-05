@@ -201,6 +201,7 @@ npm install
 npm run build:start
 ```
 
+- The GUI connects to the Midnight Preprod network by default. To use another network, e.g. a local `undeployed` network, set the `VITE_NETWORK_ID` environment variable when building it: `VITE_NETWORK_ID=undeployed npm run build:start`. The wallet must be connected to the same network.
 - Open [http://localhost:8080](http://localhost:8080) in your browser.
 - Ensure you have the [Lace wallet](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) extension installed, connected, and with available `tNIGHT` and `tDUST` funds. You can get tNIGHT from the [Preprod Faucet](https://faucet.preprod.midnight.network).
 

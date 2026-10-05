@@ -121,9 +121,8 @@ export const DMarket: React.FC<Readonly<DMarketProps>> = ({
       return;
     }
     if (dMarketDeployment.status === "failed") {
-      console.log(
-        `dMarket connection failed: ${JSON.stringify(dMarketDeployment.error)}`,
-      );
+      // log the error object itself so its message and cause chain are visible
+      console.error("dMarket connection failed:", dMarketDeployment.error);
       setUserName("");
       setContractAddress("");
       setIsWorking({

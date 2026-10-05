@@ -5,10 +5,8 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import * as pino from "pino";
 import { DeployedDMarketProvider } from "./contexts";
-import {
-  setNetworkId,
-  NetworkId,
-} from "@midnight-ntwrk/midnight-js-network-id";
+import { NETWORK_ID } from "./config";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -20,8 +18,7 @@ export const logger = pino.pino({
 });
 
 // Ensure that the network IDs are set within the Midnight libraries.
-const networkId = "preprod"; //import.meta.env.VITE_NETWORK_ID as NetworkId;
-setNetworkId(networkId);
+setNetworkId(NETWORK_ID);
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(

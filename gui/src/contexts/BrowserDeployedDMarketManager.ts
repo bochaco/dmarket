@@ -42,10 +42,12 @@ import {
 } from "../../../api/src/index";
 import { type OfferContentStore } from "../../../api/src/index";
 import { inMemoryPrivateStateProvider } from "../inMemoryPrivateState";
+import { NETWORK_ID } from "../config";
 import {
   createOfferContentStore,
   type DStorageChainSettings,
 } from "../dstorage";
+import { assertWalletIndexerInSync } from "../walletIndexer";
 import {
   type ContractAddress,
   fromHex,
@@ -248,10 +250,15 @@ export class BrowserDeployedDMarketManager implements DeployedDMarketAPIProvider
     // 2. Act as a synchronization point if multiple contract deploys or joins run concurrently.
     //    Concurrent calls to `getProviders()` will receive, and ultimately await, the same
     //    `Promise`.
-    return (
-      this.#initializedProviders ??
-      (this.#initializedProviders = initializeProviders(this.logger))
-    );
+    if (!this.#initializedProviders) {
+      this.#initializedProviders = initializeProviders(this.logger);
+      // don't cache a failure (e.g. wallet not connected, or its indexer out of
+      // sync), so it can be retried once the issue has been fixed
+      this.#initializedProviders.catch(() => {
+        this.#initializedProviders = undefined;
+      });
+    }
+    return this.#initializedProviders;
   }
 
   private async deployDeployment(
@@ -337,7 +344,7 @@ interface InitializedProviders {
 const initializeProviders = async (
   logger: Logger,
 ): Promise<InitializedProviders> => {
-  const networkId = "preprod"; //import.meta.env.VITE_NETWORK_ID
+  const networkId = NETWORK_ID;
   const { connectedAPI, walletRdns } = await connectToWallet(
     logger,
     networkId,
@@ -348,6 +355,7 @@ const initializeProviders = async (
     fetch.bind(window),
   );
   const config = await connectedAPI.getConfiguration();
+  await assertWalletIndexerInSync(config.indexerUri);
   const inMemoryDMarketPrivateStateProvider = inMemoryPrivateStateProvider<
     string,
     DMarketPrivateState
